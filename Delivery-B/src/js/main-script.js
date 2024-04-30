@@ -34,8 +34,35 @@ const CONTRA_PESO_LENGTH = 3,
   CONTRA_PESO_HEIGHT = 3.3,
   CONTRA_PESO_DEPTH = 1.2;
 const CONTRA_PESO_Y_BASELINE = -0.15,
-  CONTRA_PESO_LEFT_MARGIN = 0.5;
+  CONTRA_PESO_LEFT_MARGIN = 0.5,
+  CONTRA_PESO_X_DISTANCE =
+    PORTA_LANCA_WIDTH / 2 +
+    CONTRA_LANCA_LENGTH -
+    CONTRA_PESO_LEFT_MARGIN -
+    CONTRA_PESO_LENGTH / 2;
+
 const TOTAL_CRANE_HEIGHT = BASE_HEIGHT + TOWER_HEIGHT + PORTA_LANCA_HEIGHT;
+const PORTA_LANCA_UPPER_HEIGHT = PORTA_LANCA_HEIGHT - LANCA_Y_BASELINE;
+
+const TIRANTE_RADIUS = 0.1;
+
+const TIRANTE_FRENTE_X_DISTANCE = PORTA_LANCA_WIDTH / 2 + 30;
+const TIRANTE_FRENTE_HEIGHT = PORTA_LANCA_UPPER_HEIGHT - LANCA_HEIGHT;
+const TIRANTE_FRENTE_LENGTH = Math.sqrt(
+  Math.pow(TIRANTE_FRENTE_X_DISTANCE, 2) + Math.pow(TIRANTE_FRENTE_HEIGHT, 2)
+);
+const TIRANTE_FRENTE_Z_ANGLE = Math.atan(
+  TIRANTE_FRENTE_X_DISTANCE / TIRANTE_FRENTE_HEIGHT
+);
+
+const TIRANTE_TRAS_X_DISTANCE = CONTRA_PESO_X_DISTANCE;
+const TIRANTE_TRAS_HEIGHT = PORTA_LANCA_UPPER_HEIGHT - CONTRA_LANCA_HEIGHT;
+const TIRANTE_TRAS_LENGTH = Math.sqrt(
+  Math.pow(TIRANTE_TRAS_X_DISTANCE, 2) + Math.pow(TIRANTE_TRAS_HEIGHT, 2)
+);
+const TIRANTE_TRAS_Z_ANGLE = -Math.atan(
+  TIRANTE_TRAS_X_DISTANCE / TIRANTE_TRAS_HEIGHT
+);
 
 var scene, renderer;
 
@@ -177,6 +204,10 @@ function addUpperGroup(parent) {
   addContraLanca(upperGroup);
 
   addContraPeso(upperGroup);
+
+  addTirantesFrente(upperGroup);
+
+  addTirantesTras(upperGroup);
 
   addCabin(upperGroup);
 
@@ -336,17 +367,82 @@ function addContraPeso(parent) {
 
   contraPeso.add(mesh);
   contraPeso.position.set(
-    -(
-      PORTA_LANCA_WIDTH / 2 +
-      CONTRA_LANCA_LENGTH -
-      CONTRA_PESO_LEFT_MARGIN -
-      CONTRA_PESO_LENGTH / 2
-    ),
+    -CONTRA_PESO_X_DISTANCE,
     CONTRA_LANCA_HEIGHT / 2 + CONTRA_PESO_Y_BASELINE,
     0
   );
 
   parent.add(contraPeso);
+}
+
+function addTirantesFrente(parent) {
+  "use strict";
+
+  const tiranteFrente = new THREE.Object3D();
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x0000ff,
+    wireframe: false,
+  });
+
+  const geometry = new THREE.CylinderGeometry(
+    TIRANTE_RADIUS,
+    TIRANTE_RADIUS,
+    TIRANTE_FRENTE_LENGTH,
+    64,
+    64
+  );
+  const mesh = new THREE.Mesh(geometry, material);
+
+  tiranteFrente.add(mesh);
+  tiranteFrente.position.set(
+    TIRANTE_FRENTE_LENGTH / 2,
+    TIRANTE_FRENTE_HEIGHT / 2 + LANCA_HEIGHT - TIRANTE_RADIUS,
+    0
+  );
+  tiranteFrente.rotation.z = TIRANTE_FRENTE_Z_ANGLE;
+
+  const tiranteFrente2 = tiranteFrente.clone();
+  tiranteFrente2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS);
+  tiranteFrente.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS);
+
+  parent.add(tiranteFrente);
+  parent.add(tiranteFrente2);
+}
+
+function addTirantesTras(parent) {
+  "use strict";
+
+  const tiranteTras = new THREE.Object3D();
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x0000ff,
+    wireframe: false,
+  });
+
+  const geometry = new THREE.CylinderGeometry(
+    TIRANTE_RADIUS,
+    TIRANTE_RADIUS,
+    TIRANTE_TRAS_LENGTH,
+    64,
+    64
+  );
+  const mesh = new THREE.Mesh(geometry, material);
+
+  tiranteTras.add(mesh);
+  tiranteTras.position.set(
+    -TIRANTE_TRAS_LENGTH / 2 + PORTA_LANCA_WIDTH / 2,
+    TIRANTE_TRAS_HEIGHT / 2 + CONTRA_LANCA_HEIGHT - TIRANTE_RADIUS,
+    0
+  );
+  tiranteTras.rotation.z = TIRANTE_TRAS_Z_ANGLE;
+
+  const tiranteTras2 = tiranteTras.clone();
+  tiranteTras2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS);
+  tiranteTras.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS);
+
+  parent.add(tiranteTras);
+  parent.add(tiranteTras2);
 }
 
 //////////////////////
