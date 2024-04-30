@@ -22,6 +22,11 @@ const LANCA_Y_BASELINE = 3.9;
 const LANCA_LENGTH = 63,
   LANCA_DEPTH = PORTA_LANCA_WIDTH,
   LANCA_HEIGHT = 1.8;
+const CART_LENGTH = 2,
+  CART_HEIGHT = 0.9,
+  CART_DEPTH = 1.8;
+const CART_RANGE_MIN = CABIN_LENGTH + CART_LENGTH / 2,
+  CART_RANGE_MAX = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 - CART_LENGTH / 2;
 const CONTRA_LANCA_LENGTH = 12,
   CONTRA_LANCA_DEPTH = PORTA_LANCA_WIDTH,
   CONTRA_LANCA_HEIGHT = 0.6;
@@ -37,7 +42,7 @@ var scene, renderer;
 var cameras = [];
 var activeCamera;
 
-var tower, portaLanca, cabin, lanca, contraLanca, contraPeso;
+var upperGroup, cartGroup;
 
 /////////////////////
 /* CREATE SCENE(S) */
@@ -112,7 +117,7 @@ function addCrane(parent) {
 
   addTower(parent);
 
-  addUpperSection(parent);
+  addUpperGroup(parent);
 }
 
 function addBase(parent) {
@@ -136,7 +141,7 @@ function addBase(parent) {
 function addTower(parent) {
   "use strict";
 
-  tower = new THREE.Object3D();
+  const tower = new THREE.Object3D();
 
   const material = new THREE.MeshBasicMaterial({
     color: 0x0000ff,
@@ -155,33 +160,35 @@ function addTower(parent) {
   parent.add(tower);
 }
 
-function addUpperSection(parent) {
+function addUpperGroup(parent) {
   "use strict";
 
-  const upperSection = new THREE.Object3D();
-  upperSection.position.set(
+  upperGroup = new THREE.Object3D();
+  upperGroup.position.set(
     0,
     BASE_HEIGHT / 2 + TOWER_HEIGHT + LANCA_Y_BASELINE,
     0
   );
 
-  addPortaLanca(upperSection);
+  addPortaLanca(upperGroup);
 
-  addLanca(upperSection);
+  addLanca(upperGroup);
 
-  addContraLanca(upperSection);
+  addContraLanca(upperGroup);
 
-  addContraPeso(upperSection);
+  addContraPeso(upperGroup);
 
-  addCabin(upperSection);
+  addCabin(upperGroup);
 
-  parent.add(upperSection);
+  addCartGroup(upperGroup);
+
+  parent.add(upperGroup);
 }
 
 function addPortaLanca(parent) {
   "use strict";
 
-  portaLanca = new THREE.Object3D();
+  const portaLanca = new THREE.Object3D();
 
   const material = new THREE.MeshBasicMaterial({
     color: 0x00ff00,
@@ -203,7 +210,7 @@ function addPortaLanca(parent) {
 function addCabin(parent) {
   "use strict";
 
-  cabin = new THREE.Object3D();
+  const cabin = new THREE.Object3D();
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xebba34,
@@ -229,7 +236,7 @@ function addCabin(parent) {
 function addLanca(parent) {
   "use strict";
 
-  lanca = new THREE.Object3D();
+  const lanca = new THREE.Object3D();
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xff0000,
@@ -252,10 +259,43 @@ function addLanca(parent) {
   parent.add(lanca);
 }
 
+function addCartGroup(parent) {
+  "use strict";
+
+  cartGroup = new THREE.Object3D();
+  cartGroup.position.set(
+    (CART_RANGE_MIN + CART_RANGE_MAX) / 2,
+    -CART_HEIGHT / 2,
+    0
+  );
+
+  addCart(cartGroup);
+
+  parent.add(cartGroup);
+}
+
+function addCart(parent) {
+  "use strict";
+
+  const cart = new THREE.Object3D();
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x0000ff,
+    wireframe: false,
+  });
+  const geometry = new THREE.BoxGeometry(CART_LENGTH, CART_HEIGHT, CART_DEPTH);
+  const mesh = new THREE.Mesh(geometry, material);
+
+  cart.add(mesh);
+  cart.position.set(0, 0, 0);
+
+  parent.add(cart);
+}
+
 function addContraLanca(parent) {
   "use strict";
 
-  contraLanca = new THREE.Object3D();
+  const contraLanca = new THREE.Object3D();
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xbd36c7,
@@ -281,7 +321,7 @@ function addContraLanca(parent) {
 function addContraPeso(parent) {
   "use strict";
 
-  contraPeso = new THREE.Object3D();
+  const contraPeso = new THREE.Object3D();
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xbbbbbb,
@@ -418,6 +458,22 @@ function onKeyDown(e) {
       camera.position.x = x * Math.cos(-0.1) - z * Math.sin(-0.1);
       camera.position.z = x * Math.sin(-0.1) + z * Math.cos(-0.1);
       camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
+      break;
+    case "z":
+      upperGroup.rotation.y += 0.05;
+      break;
+    case "x":
+      upperGroup.rotation.y -= 0.05;
+      break;
+    case "c":
+      if (cartGroup.position.x - 0.4 > CART_RANGE_MIN) {
+        cartGroup.position.x -= 0.4;
+      }
+      break;
+    case "v":
+      if (cartGroup.position.x + 0.4 < CART_RANGE_MAX) {
+        cartGroup.position.x += 0.4;
+      }
       break;
   }
 }
