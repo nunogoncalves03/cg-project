@@ -9,11 +9,15 @@ import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 //////////////////////
 const BASE_HEIGHT = 3,
   BASE_LENGTH = 7.2,
-  BASE_DEPTH = 2.4;
+  BASE_DEPTH = 4.4;
 const TOWER_HEIGHT = 54.75,
   TOWER_WIDTH = 2.4;
 const PORTA_LANCA_HEIGHT = 11.4,
   PORTA_LANCA_WIDTH = 1.8;
+const CABIN_LENGTH = 2.4,
+  CABIN_HEIGHT = 2.4,
+  CABIN_DEPTH = 1.8;
+const CABIN_Y_BASELINE = -0.3;
 const LANCA_Y_BASELINE = 3.9;
 const LANCA_LENGTH = 63,
   LANCA_DEPTH = PORTA_LANCA_WIDTH,
@@ -25,7 +29,7 @@ const CONTRA_PESO_LENGTH = 3,
   CONTRA_PESO_HEIGHT = 3.3,
   CONTRA_PESO_DEPTH = 1.2;
 const CONTRA_PESO_Y_BASELINE = -0.15,
-  CONTRA_PESO_LEFT_MARGIN = 0.3;
+  CONTRA_PESO_LEFT_MARGIN = 0.5;
 const TOTAL_CRANE_HEIGHT = BASE_HEIGHT + TOWER_HEIGHT + PORTA_LANCA_HEIGHT;
 
 var scene, renderer;
@@ -33,7 +37,7 @@ var scene, renderer;
 var cameras = [];
 var activeCamera;
 
-var tower, portaLanca, lanca, contraLanca, contraPeso;
+var tower, portaLanca, cabin, lanca, contraLanca, contraPeso;
 
 /////////////////////
 /* CREATE SCENE(S) */
@@ -72,7 +76,7 @@ function createPerspectiveCamera() {
   camera.position.x = 0;
   camera.position.y = 70;
   camera.position.z = 50;
-  camera.lookAt(0, TOTAL_CRANE_HEIGHT/2, 0);
+  camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
 
   cameras.push(camera);
 }
@@ -101,19 +105,14 @@ function createTopCamera() {
 ////////////////////////
 /* CREATE OBJECT3D(S) */
 ////////////////////////
-function addCrane(scene) {
+function addCrane(parent) {
   "use strict";
 
-  addBase(scene);
-  const baseTop = new THREE.Object3D();
-  baseTop.position.set(0, BASE_HEIGHT / 2, 0);
-  addTower(baseTop);
-  scene.add(baseTop);
+  addBase(parent);
 
-  const upperSection = new THREE.Object3D();
-  upperSection.position.set(0, BASE_HEIGHT / 2 + TOWER_HEIGHT, 0);
-  addUpperSection(upperSection);
-  scene.add(upperSection);
+  addTower(parent);
+
+  addUpperSection(parent);
 }
 
 function addBase(parent) {
@@ -151,33 +150,32 @@ function addTower(parent) {
   const mesh = new THREE.Mesh(geometry, material);
 
   tower.add(mesh);
-  tower.position.set(0, TOWER_HEIGHT / 2, 0);
+  tower.position.set(0, TOWER_HEIGHT / 2 + BASE_HEIGHT / 2, 0);
 
   parent.add(tower);
 }
 
 function addUpperSection(parent) {
   "use strict";
-  addPortaLanca(parent);
 
-  const lancaOffset = new THREE.Object3D();
-  lancaOffset.position.set(PORTA_LANCA_WIDTH / 2, LANCA_Y_BASELINE, 0);
-  addLanca(lancaOffset);
-  parent.add(lancaOffset);
-
-  const contraLancaOffset = new THREE.Object3D();
-  contraLancaOffset.position.set(-PORTA_LANCA_WIDTH / 2, LANCA_Y_BASELINE, 0);
-  addContraLanca(contraLancaOffset);
-  parent.add(contraLancaOffset);
-
-  const contraPesoOffset = new THREE.Object3D();
-  contraPesoOffset.position.set(
-    -(CONTRA_LANCA_LENGTH - CONTRA_PESO_LEFT_MARGIN - CONTRA_PESO_LENGTH / 2),
-    LANCA_Y_BASELINE + CONTRA_LANCA_HEIGHT / 2 + CONTRA_PESO_Y_BASELINE,
+  const upperSection = new THREE.Object3D();
+  upperSection.position.set(
+    0,
+    BASE_HEIGHT / 2 + TOWER_HEIGHT + LANCA_Y_BASELINE,
     0
   );
-  addContraPeso(contraPesoOffset);
-  parent.add(contraPesoOffset);
+
+  addPortaLanca(upperSection);
+
+  addLanca(upperSection);
+
+  addContraLanca(upperSection);
+
+  addContraPeso(upperSection);
+
+  addCabin(upperSection);
+
+  parent.add(upperSection);
 }
 
 function addPortaLanca(parent) {
@@ -197,9 +195,35 @@ function addPortaLanca(parent) {
   const mesh = new THREE.Mesh(geometry, material);
 
   portaLanca.add(mesh);
-  portaLanca.position.set(0, PORTA_LANCA_HEIGHT / 2, 0);
+  portaLanca.position.set(0, PORTA_LANCA_HEIGHT / 2 - LANCA_Y_BASELINE, 0);
 
   parent.add(portaLanca);
+}
+
+function addCabin(parent) {
+  "use strict";
+
+  cabin = new THREE.Object3D();
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xebba34,
+    wireframe: false,
+  });
+  const geometry = new THREE.BoxGeometry(
+    CABIN_LENGTH,
+    CABIN_HEIGHT,
+    CABIN_DEPTH
+  );
+  const mesh = new THREE.Mesh(geometry, material);
+
+  cabin.add(mesh);
+  cabin.position.set(
+    (TOWER_WIDTH - PORTA_LANCA_WIDTH) / 2,
+    CABIN_Y_BASELINE - CABIN_HEIGHT / 2,
+    PORTA_LANCA_WIDTH
+  );
+
+  parent.add(cabin);
 }
 
 function addLanca(parent) {
@@ -219,7 +243,11 @@ function addLanca(parent) {
   const mesh = new THREE.Mesh(geometry, material);
 
   lanca.add(mesh);
-  lanca.position.set(LANCA_LENGTH / 2, LANCA_HEIGHT / 2, 0);
+  lanca.position.set(
+    PORTA_LANCA_WIDTH / 2 + LANCA_LENGTH / 2,
+    LANCA_HEIGHT / 2,
+    0
+  );
 
   parent.add(lanca);
 }
@@ -242,7 +270,7 @@ function addContraLanca(parent) {
 
   contraLanca.add(mesh);
   contraLanca.position.set(
-    -CONTRA_LANCA_LENGTH / 2,
+    -PORTA_LANCA_WIDTH / 2 - CONTRA_LANCA_LENGTH / 2,
     CONTRA_LANCA_HEIGHT / 2,
     0
   );
@@ -267,7 +295,16 @@ function addContraPeso(parent) {
   const mesh = new THREE.Mesh(geometry, material);
 
   contraPeso.add(mesh);
-  contraPeso.position.set(0, 0, 0);
+  contraPeso.position.set(
+    -(
+      PORTA_LANCA_WIDTH / 2 +
+      CONTRA_LANCA_LENGTH -
+      CONTRA_PESO_LEFT_MARGIN -
+      CONTRA_PESO_LENGTH / 2
+    ),
+    CONTRA_LANCA_HEIGHT / 2 + CONTRA_PESO_Y_BASELINE,
+    0
+  );
 
   parent.add(contraPeso);
 }
@@ -375,12 +412,12 @@ function onKeyDown(e) {
     case "a":
       camera.position.x = x * Math.cos(0.1) - z * Math.sin(0.1);
       camera.position.z = x * Math.sin(0.1) + z * Math.cos(0.1);
-      camera.lookAt(0, TOTAL_CRANE_HEIGHT/2, 0);
+      camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
       break;
     case "d":
       camera.position.x = x * Math.cos(-0.1) - z * Math.sin(-0.1);
       camera.position.z = x * Math.sin(-0.1) + z * Math.cos(-0.1);
-      camera.lookAt(0, TOTAL_CRANE_HEIGHT/2, 0);
+      camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
       break;
   }
 }
