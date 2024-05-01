@@ -27,6 +27,8 @@ const CART_LENGTH = 2,
   CART_DEPTH = 1.8;
 const CART_RANGE_MIN = CABIN_LENGTH + CART_LENGTH / 2,
   CART_RANGE_MAX = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 - CART_LENGTH / 2;
+const CABLE_RADIUS = 0.1,
+  CABLE_LENGTH = 24;
 const CONTRA_LANCA_LENGTH = 12,
   CONTRA_LANCA_DEPTH = PORTA_LANCA_WIDTH,
   CONTRA_LANCA_HEIGHT = 0.6;
@@ -64,12 +66,14 @@ const TIRANTE_TRAS_Z_ANGLE = -Math.atan(
   TIRANTE_TRAS_X_DISTANCE / TIRANTE_TRAS_HEIGHT
 );
 
+const DEFAULT_WIREFRAME = false;
+
 var scene, renderer;
 
 var cameras = [];
 var activeCamera;
 
-var upperGroup, cartGroup;
+var upperGroup, cartGroup, cables;
 
 /////////////////////
 /* CREATE SCENE(S) */
@@ -154,7 +158,7 @@ function addBase(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0x00ff00,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(BASE_LENGTH, BASE_HEIGHT, BASE_DEPTH);
   const mesh = new THREE.Mesh(geometry, material);
@@ -172,7 +176,7 @@ function addTower(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0x0000ff,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(
     TOWER_WIDTH,
@@ -223,7 +227,7 @@ function addPortaLanca(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0x00ff00,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(
     PORTA_LANCA_WIDTH,
@@ -245,7 +249,7 @@ function addCabin(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xebba34,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(
     CABIN_LENGTH,
@@ -271,7 +275,7 @@ function addLanca(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xff0000,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(
     LANCA_LENGTH,
@@ -302,6 +306,8 @@ function addCartGroup(parent) {
 
   addCart(cartGroup);
 
+  addClawCables(cartGroup);
+
   parent.add(cartGroup);
 }
 
@@ -312,7 +318,7 @@ function addCart(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0x0000ff,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(CART_LENGTH, CART_HEIGHT, CART_DEPTH);
   const mesh = new THREE.Mesh(geometry, material);
@@ -330,7 +336,7 @@ function addContraLanca(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xbd36c7,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(
     CONTRA_LANCA_LENGTH,
@@ -349,6 +355,40 @@ function addContraLanca(parent) {
   parent.add(contraLanca);
 }
 
+function addClawCables(parent) {
+  "use strict";
+
+  const cable = new THREE.Object3D();
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x00ff00,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+
+  const geometry = new THREE.CylinderGeometry(
+    CABLE_RADIUS,
+    CABLE_RADIUS,
+    CABLE_LENGTH,
+    64,
+    64
+  );
+  const mesh = new THREE.Mesh(geometry, material);
+
+  cable.add(mesh);
+  cable.position.set(0, -CABLE_LENGTH / 2 - CART_HEIGHT / 2, 0);
+
+  cable.userData.length = geometry.parameters.height;
+
+  const cable2 = cable.clone();
+  cable2.position.setX(((-4 / 5) * CART_LENGTH) / 2 + CABLE_RADIUS);
+  cable.position.setX(((4 / 5) * CART_LENGTH) / 2 - CABLE_RADIUS);
+
+  cables = [cable, cable2];
+
+  parent.add(cable);
+  parent.add(cable2);
+}
+
 function addContraPeso(parent) {
   "use strict";
 
@@ -356,7 +396,7 @@ function addContraPeso(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xbbbbbb,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(
     CONTRA_PESO_LENGTH,
@@ -382,7 +422,7 @@ function addTirantesFrente(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0x0000ff,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
 
   const geometry = new THREE.CylinderGeometry(
@@ -417,7 +457,7 @@ function addTirantesTras(parent) {
 
   const material = new THREE.MeshBasicMaterial({
     color: 0x0000ff,
-    wireframe: false,
+    wireframe: DEFAULT_WIREFRAME,
   });
 
   const geometry = new THREE.CylinderGeometry(
@@ -527,6 +567,13 @@ function onKeyDown(e) {
     case "2":
       activeCamera = cameras[Number(e.key) - 1];
       break;
+    case "g":
+      scene.traverse(function (child) {
+        if (child instanceof THREE.Mesh) {
+          child.material.wireframe = !child.material.wireframe;
+        }
+      });
+      break;
     case "q":
       camera.position.x -= 1;
       break;
@@ -570,6 +617,27 @@ function onKeyDown(e) {
       if (cartGroup.position.x + 0.4 < CART_RANGE_MAX) {
         cartGroup.position.x += 0.4;
       }
+      break;
+    case "b":
+    case "n":
+      const DELTA = 0.4;
+
+      const currentLength = cables[0].userData.length;
+
+      if (
+        (e.key == "b" && currentLength <= 4 * DELTA) ||
+        (e.key == "n" && currentLength + DELTA > TOWER_HEIGHT)
+      )
+        return;
+
+      const newHeight = currentLength - (e.key == "b" ? DELTA : -DELTA);
+      const factor = newHeight / CABLE_LENGTH;
+
+      cables.forEach((cable) => {
+        cable.position.y += e.key == "b" ? DELTA / 2 : -DELTA / 2;
+        cable.scale.y = factor;
+        cable.userData.length = newHeight;
+      });
       break;
   }
 }
