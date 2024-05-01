@@ -29,6 +29,10 @@ const CART_RANGE_MIN = CABIN_LENGTH + CART_LENGTH / 2,
   CART_RANGE_MAX = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 - CART_LENGTH / 2;
 const CABLE_RADIUS = 0.1,
   CABLE_LENGTH = 24;
+const CLAW_BASE_WIDTH = 2,
+  CLAW_BASE_HEIGHT = 0.6;
+const CLAW_ARM_LENGTH = 0.6,
+  CLAW_ARM_HEIGHT = 2;
 const CONTRA_LANCA_LENGTH = 12,
   CONTRA_LANCA_DEPTH = PORTA_LANCA_WIDTH,
   CONTRA_LANCA_HEIGHT = 0.6;
@@ -73,7 +77,7 @@ var scene, renderer;
 var cameras = [];
 var activeCamera;
 
-var upperGroup, cartGroup, cables;
+var upperGroup, cartGroup, cables, clawGroup, clawArms;
 
 /////////////////////
 /* CREATE SCENE(S) */
@@ -308,6 +312,8 @@ function addCartGroup(parent) {
 
   addClawCables(cartGroup);
 
+  addClawGroup(cartGroup);
+
   parent.add(cartGroup);
 }
 
@@ -387,6 +393,93 @@ function addClawCables(parent) {
 
   parent.add(cable);
   parent.add(cable2);
+}
+
+function addClawGroup(parent) {
+  "use strict";
+
+  clawGroup = new THREE.Object3D();
+  clawGroup.position.set(
+    0,
+    -CART_HEIGHT / 2 - cables[0].userData.length - CLAW_BASE_HEIGHT / 2,
+    0
+  );
+
+  addClawBase(clawGroup);
+  addClawArms(clawGroup);
+
+  parent.add(clawGroup);
+}
+
+function addClawBase(parent) {
+  "use strict";
+
+  const clawBase = new THREE.Object3D();
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xbd36c7,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+  const geometry = new THREE.BoxGeometry(
+    CLAW_BASE_WIDTH,
+    CLAW_BASE_HEIGHT,
+    CLAW_BASE_WIDTH
+  );
+  const mesh = new THREE.Mesh(geometry, material);
+
+  clawBase.add(mesh);
+  clawBase.position.set(0, 0, 0);
+
+  parent.add(clawBase);
+}
+
+function addClawArms(parent) {
+  "use strict";
+
+  const clawArm = new THREE.Object3D();
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xff0000,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+
+  const geometry = new THREE.CylinderGeometry(
+    CLAW_ARM_LENGTH / 2 / Math.cos(Math.PI / 4),
+    0,
+    CLAW_ARM_HEIGHT,
+    3,
+    1
+  );
+  const mesh = new THREE.Mesh(geometry, material);
+
+  clawArm.add(mesh);
+  clawArm.position.set(0, -CLAW_BASE_HEIGHT / 2 - CLAW_ARM_HEIGHT / 2, 0);
+
+  clawArm.userData.angle = clawArm.rotation.z;
+
+  const clawArm2 = clawArm.clone();
+  const clawArm3 = clawArm.clone();
+  const clawArm4 = clawArm.clone();
+
+  clawArm.position.setX(CLAW_BASE_WIDTH / 2 - CLAW_ARM_LENGTH / 2);
+  clawArm.position.setZ(CLAW_BASE_WIDTH / 2 - CLAW_ARM_LENGTH / 2);
+  clawArm.rotation.y = Math.PI / 4;
+  clawArm2.position.setX(-CLAW_BASE_WIDTH / 2 + CLAW_ARM_LENGTH / 2);
+  clawArm2.position.setZ(CLAW_BASE_WIDTH / 2 - CLAW_ARM_LENGTH / 2);
+  clawArm2.rotation.y = -Math.PI / 4;
+  clawArm3.position.setX(-CLAW_BASE_WIDTH / 2 + CLAW_ARM_LENGTH / 2);
+  clawArm3.position.setZ(-CLAW_BASE_WIDTH / 2 + CLAW_ARM_LENGTH / 2);
+  clawArm3.rotation.y = -3 * (Math.PI / 4);
+  clawArm4.position.setX(CLAW_BASE_WIDTH / 2 - CLAW_ARM_LENGTH / 2);
+  clawArm4.position.setZ(-CLAW_BASE_WIDTH / 2 + CLAW_ARM_LENGTH / 2);
+  clawArm4.rotation.y = 3 * (Math.PI / 4);
+
+  clawArms = [clawArm, clawArm2, clawArm3, clawArm4];
+
+  parent.add(clawArm);
+  parent.add(clawArm2);
+  parent.add(clawArm3);
+  parent.add(clawArm4);
 }
 
 function addContraPeso(parent) {
@@ -638,6 +731,8 @@ function onKeyDown(e) {
         cable.scale.y = factor;
         cable.userData.length = newHeight;
       });
+
+      clawGroup.position.y += e.key == "b" ? DELTA : -DELTA;
       break;
   }
 }
