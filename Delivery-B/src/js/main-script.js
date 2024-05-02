@@ -31,7 +31,7 @@ const CABLE_RADIUS = 0.1,
   CABLE_LENGTH = 24;
 const CLAW_BASE_WIDTH = 2,
   CLAW_BASE_HEIGHT = 0.6;
-const CLAW_ARM_LENGTH = 0.6,
+const CLAW_ARM_LENGTH = 0.45,
   CLAW_ARM_HEIGHT = 2;
 const CONTRA_LANCA_LENGTH = 12,
   CONTRA_LANCA_DEPTH = PORTA_LANCA_WIDTH,
@@ -100,9 +100,15 @@ function createScene() {
 function createCameras() {
   "use strict";
 
-  createPerspectiveCamera();
+  createFrontCamera();
+  createSideCamera();
   createTopCamera();
-  activeCamera = cameras[0];
+  createOrthogonalCamera();
+  createPerspectiveCamera();
+  createMobileCamera();
+
+  // Start in the perspective camera
+  activeCamera = cameras[4];
 }
 
 function createPerspectiveCamera() {
@@ -110,12 +116,12 @@ function createPerspectiveCamera() {
   const camera = new THREE.PerspectiveCamera(
     70,
     window.innerWidth / window.innerHeight,
-    10,
+    0.1,
     1000
   );
-  camera.position.x = 0;
+  camera.position.x = 20;
   camera.position.y = 70;
-  camera.position.z = 50;
+  camera.position.z = 75;
   camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
 
   cameras.push(camera);
@@ -124,16 +130,114 @@ function createPerspectiveCamera() {
 function createTopCamera() {
   "use strict";
 
-  const camera = new THREE.PerspectiveCamera(
-    70,
-    window.innerWidth / window.innerHeight,
-    10,
+  const aspectRatio = window.innerWidth / window.innerHeight;
+  const cameraWidth = 150;
+  const halfCameraHeight = cameraWidth / aspectRatio / 2;
+
+  const camera = new THREE.OrthographicCamera(
+    -halfCameraHeight * aspectRatio,
+    halfCameraHeight * aspectRatio,
+    halfCameraHeight,
+    -halfCameraHeight,
+    0.1,
     1000
   );
   camera.position.x = 0;
   camera.position.y = TOTAL_CRANE_HEIGHT + 10;
   camera.position.z = 0;
   camera.lookAt(scene.position);
+
+  cameras.push(camera);
+}
+
+function createFrontCamera() {
+  "use strict";
+
+  const aspectRatio = window.innerWidth / window.innerHeight;
+  const cameraWidth = 150;
+  const halfCameraHeight = cameraWidth / aspectRatio / 2;
+
+  const camera = new THREE.OrthographicCamera(
+    -halfCameraHeight * aspectRatio,
+    halfCameraHeight * aspectRatio,
+    halfCameraHeight + 20,
+    -halfCameraHeight + 20,
+    0.1,
+    1000
+  );
+  camera.position.x = 75;
+  camera.position.y = 50;
+  camera.position.z = 0;
+  camera.lookAt(scene.position);
+
+  cameras.push(camera);
+}
+
+function createSideCamera() {
+  "use strict";
+
+  const aspectRatio = window.innerWidth / window.innerHeight;
+  const cameraWidth = 150;
+  const halfCameraHeight = cameraWidth / aspectRatio / 2;
+
+  const camera = new THREE.OrthographicCamera(
+    -halfCameraHeight * aspectRatio,
+    halfCameraHeight * aspectRatio,
+    halfCameraHeight + 20,
+    -halfCameraHeight + 20,
+    0.1,
+    1000
+  );
+  camera.position.x = 0;
+  camera.position.y = 60;
+  camera.position.z = 90;
+  camera.lookAt(scene.position);
+
+  cameras.push(camera);
+}
+
+function createOrthogonalCamera() {
+  "use strict";
+
+  const aspectRatio = window.innerWidth / window.innerHeight;
+  const cameraWidth = 150;
+  const halfCameraHeight = cameraWidth / aspectRatio / 2;
+
+  const camera = new THREE.OrthographicCamera(
+    -halfCameraHeight * aspectRatio,
+    halfCameraHeight * aspectRatio,
+    halfCameraHeight + 20,
+    -halfCameraHeight + 20,
+    0.1,
+    1000
+  );
+  camera.position.x = 70;
+  camera.position.y = 60;
+  camera.position.z = 70;
+  camera.lookAt(scene.position);
+
+  cameras.push(camera);
+}
+
+function createMobileCamera() {
+  "use strict";
+
+  const camera = new THREE.PerspectiveCamera(
+    70,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+
+  clawGroup.add(camera);
+
+  camera.position.x = 0;
+  camera.position.y = -CLAW_BASE_HEIGHT / 2;
+  camera.position.z = 0;
+
+  const vector = new THREE.Vector3();
+  clawGroup.getWorldPosition(vector);
+  camera.lookAt(vector.x, 0, vector.z);
 
   cameras.push(camera);
 }
@@ -658,6 +762,10 @@ function onKeyDown(e) {
   switch (e.key) {
     case "1":
     case "2":
+    case "3":
+    case "4":
+    case "5":
+    case "6":  
       activeCamera = cameras[Number(e.key) - 1];
       break;
     case "g":
