@@ -1,5 +1,43 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: sans-serif;
+}
+
 body {
     margin: 0px;
     background-color: #fff;
     overflow: hidden;
+}
+
+#hud-container {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  background-color: rgba(100, 100, 100, 0.3);
+  border-radius: 1rem;
+  padding: 1rem;
+  color: black;
+  font-size: 0.9rem;
+}
+
+#hud-container .keybind-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#hud-container .keybind-entry .keybind {
+  padding: 0.3rem;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 0.4rem;
+}
+
+#hud-container .keybind-entry.active .keybind {
+  background-color: rgb(255, 177, 75);
 }

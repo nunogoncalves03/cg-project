@@ -82,6 +82,8 @@ var activeCamera;
 
 var upperGroup, cartGroup, cables, clawGroup, clawArms;
 
+var keyToHUDElementMap = new Map();
+
 /////////////////////
 /* CREATE SCENE(S) */
 /////////////////////
@@ -90,8 +92,6 @@ function createScene() {
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xb8d3d9);
-
-  scene.add(new THREE.AxesHelper(10));
 
   addFloor(scene);
   addCrane(scene);
@@ -776,10 +776,12 @@ function init() {
 
   createScene();
   createCameras();
+  createHUD();
 
   render();
 
   window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("keyup", onKeyUp);
 }
 
 /////////////////////
@@ -811,6 +813,11 @@ function onKeyDown(e) {
   const y = camera.position.y;
   const z = camera.position.z;
 
+  const keyElement = keyToHUDElementMap.get(e.key.toLowerCase());
+  if (keyElement) {
+    keyElement.classList.add("active");
+  }
+
   switch (e.key) {
     case "1":
     case "2":
@@ -820,23 +827,94 @@ function onKeyDown(e) {
     case "6":
       activeCamera = cameras[Number(e.key) - 1];
       break;
-    case "g":
+    case "q":
+    case "Q":
+      upperGroup.rotation.y += 0.05;
+      break;
+    case "a":
+    case "A":
+      upperGroup.rotation.y -= 0.05;
+      break;
+    case "s":
+    case "S":
+      if (cartGroup.position.x - 0.4 > CART_RANGE_MIN) {
+        cartGroup.position.x -= 0.4;
+      }
+      break;
+    case "w":
+    case "W":
+      if (cartGroup.position.x + 0.4 < CART_RANGE_MAX) {
+        cartGroup.position.x += 0.4;
+      }
+      break;
+    case "e":
+    case "E":
+    case "d":
+    case "D":
+      const DELTA = 0.4;
+
+      const currentLength = cables[0].userData.length;
+
+      if (
+        ((e.key == "e" || e.key == "E") && currentLength <= 4 * DELTA) ||
+        ((e.key == "d" || e.key == "D") && currentLength + DELTA > TOWER_HEIGHT)
+      )
+        return;
+
+      const newHeight =
+        currentLength - (e.key == "e" || e.key == "E" ? DELTA : -DELTA);
+      const factor = newHeight / CABLE_LENGTH;
+
+      cables.forEach((cable) => {
+        cable.position.y +=
+          e.key == "e" || e.key == "E" ? DELTA / 2 : -DELTA / 2;
+        cable.scale.y = factor;
+        cable.userData.length = newHeight;
+      });
+
+      clawGroup.position.y += e.key == "e" || e.key == "E" ? DELTA : -DELTA;
+      break;
+    case "r":
+    case "R":
+    case "f":
+    case "F":
+      const DELTA2 = CLAW_ANGLE_RANGE_MAX / 20;
+
+      // Grab the current rotation of the claw arms through the second arm
+      // since its rotation angle is always positive
+      const currentRotation = clawArms[1].rotation.x;
+
+      if (
+        ((e.key == "r" || e.key == "R") &&
+          currentRotation - DELTA2 < CLAW_ANGLE_RANGE_MIN) ||
+        ((e.key == "f" || e.key == "F") &&
+          currentRotation + DELTA2 > CLAW_ANGLE_RANGE_MAX)
+      )
+        return;
+
+      clawArms.forEach((arm) => {
+        arm.userData.rotate(e.key == "r" || e.key == "R" ? -DELTA2 : DELTA2);
+      });
+
+      break;
+    case "t":
+    case "T":
       scene.traverse(function (child) {
         if (child instanceof THREE.Mesh) {
           child.material.wireframe = !child.material.wireframe;
         }
       });
       break;
-    case "q":
+    case "z":
       camera.position.x -= 1;
       break;
-    case "e":
+    case "x":
       camera.position.x += 1;
       break;
-    case "w":
+    case "c":
       camera.position.z -= 1; // Decrease the camera's z-coordinate to zoom in
       break;
-    case "s":
+    case "v":
       camera.position.z += 1; // Increase the camera's z-coordinate to zoom out
       break;
     case "ArrowDown":
@@ -845,82 +923,88 @@ function onKeyDown(e) {
     case "ArrowUp":
       camera.position.y += 1;
       break;
-    case "a":
+    case "b":
       camera.position.x = x * Math.cos(0.1) - z * Math.sin(0.1);
       camera.position.z = x * Math.sin(0.1) + z * Math.cos(0.1);
       camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
       break;
-    case "d":
+    case "n":
       camera.position.x = x * Math.cos(-0.1) - z * Math.sin(-0.1);
       camera.position.z = x * Math.sin(-0.1) + z * Math.cos(-0.1);
       camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
       break;
-    case "z":
-      upperGroup.rotation.y += 0.05;
-      break;
-    case "x":
-      upperGroup.rotation.y -= 0.05;
-      break;
-    case "c":
-      if (cartGroup.position.x - 0.4 > CART_RANGE_MIN) {
-        cartGroup.position.x -= 0.4;
-      }
-      break;
-    case "v":
-      if (cartGroup.position.x + 0.4 < CART_RANGE_MAX) {
-        cartGroup.position.x += 0.4;
-      }
-      break;
-    case "b":
-    case "n":
-      const DELTA = 0.4;
-
-      const currentLength = cables[0].userData.length;
-
-      if (
-        (e.key == "b" && currentLength <= 4 * DELTA) ||
-        (e.key == "n" && currentLength + DELTA > TOWER_HEIGHT)
-      )
-        return;
-
-      const newHeight = currentLength - (e.key == "b" ? DELTA : -DELTA);
-      const factor = newHeight / CABLE_LENGTH;
-
-      cables.forEach((cable) => {
-        cable.position.y += e.key == "b" ? DELTA / 2 : -DELTA / 2;
-        cable.scale.y = factor;
-        cable.userData.length = newHeight;
-      });
-
-      clawGroup.position.y += e.key == "b" ? DELTA : -DELTA;
-      break;
-    case "m":
-    case ",":
-      const DELTA2 = CLAW_ANGLE_RANGE_MAX / 20;
-
-      // Grab the current rotation of the claw arms through the second arm
-      // since its rotation angle is always positive
-      const currentRotation = clawArms[1].rotation.x;
-
-      if (
-        (e.key == "m" && currentRotation - DELTA2 < CLAW_ANGLE_RANGE_MIN) ||
-        (e.key == "," && currentRotation + DELTA2 > CLAW_ANGLE_RANGE_MAX)
-      )
-        return;
-
-      clawArms.forEach((arm) => {
-        arm.userData.rotate(e.key == "m" ? -DELTA2 : DELTA2);
-      });
-
-      break;
   }
 }
 
-///////////////////////
+/////////////////////
 /* KEY UP CALLBACK */
-///////////////////////
+/////////////////////
 function onKeyUp(e) {
   "use strict";
+
+  const keyElement = keyToHUDElementMap.get(e.key.toLowerCase());
+  if (keyElement) {
+    keyElement.classList.remove("active");
+  }
+}
+
+/////////
+/* HUD */
+/////////
+function createHUD() {
+  "use strict";
+
+  const keybindsActionMap = new Map([
+    ["Q", "Rotate the upper group counterclockwise"],
+    ["A", "Rotate the upper group clockwise"],
+    ["W", "Move the cart further"],
+    ["S", "Move the cart closer"],
+    ["E", "Raise the claw"],
+    ["D", "Lower the claw"],
+    ["R", "Open the claw"],
+    ["F", "Close the claw"],
+    ["T", "Toggle wireframe"],
+    ["1", "Switch to frontal camera"],
+    ["2", "Switch to side camera"],
+    ["3", "Switch to top camera"],
+    ["4", "Switch to orthogonal camera"],
+    ["5", "Switch to perspective camera"],
+    ["6", "Switch to claw camera"],
+  ]);
+
+  function isAlpha(c) {
+    return (
+      typeof c === "string" &&
+      c.length === 1 &&
+      ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z"))
+    );
+  }
+
+  const body = document.querySelector("body");
+
+  const hud = document.createElement("div");
+  hud.id = "hud-container";
+
+  keybindsActionMap.forEach((value, key) => {
+    const keybindEntry = document.createElement("div");
+    keybindEntry.className = "keybind-entry";
+
+    const keybind = document.createElement("span");
+    keybind.className = "keybind";
+    keybind.textContent = isAlpha(key) ? `${key}${key.toLowerCase()}` : key;
+    keybindEntry.appendChild(keybind);
+
+    const action = document.createElement("p");
+    action.className = "action";
+    action.textContent = value;
+    keybindEntry.appendChild(action);
+
+    hud.appendChild(keybindEntry);
+
+    keyToHUDElementMap.set(key.toLowerCase(), keybindEntry);
+  });
+
+  body.appendChild(hud);
 }
 
 init();
