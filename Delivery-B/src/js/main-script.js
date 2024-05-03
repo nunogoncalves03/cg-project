@@ -31,8 +31,11 @@ const CABLE_RADIUS = 0.1,
   CABLE_LENGTH = 24;
 const CLAW_BASE_WIDTH = 2,
   CLAW_BASE_HEIGHT = 0.6;
-const CLAW_ARM_LENGTH = 0.45,
-  CLAW_ARM_HEIGHT = 2;
+const CLAW_ARM_WIDTH = 0.5,
+  CLAW_ARM_RADIUS = 2.8,
+  CLAW_ARM_INITIAL_ANGLE = Math.PI / 4;
+const CLAW_ANGLE_RANGE_MIN = 0,
+  CLAW_ANGLE_RANGE_MAX = (3 * Math.PI) / 8;
 const CONTRA_LANCA_LENGTH = 12,
   CONTRA_LANCA_DEPTH = PORTA_LANCA_WIDTH,
   CONTRA_LANCA_HEIGHT = 0.6;
@@ -545,45 +548,67 @@ function addClawArms(parent) {
   const material = new THREE.MeshBasicMaterial({
     color: 0xff0000,
     wireframe: DEFAULT_WIREFRAME,
+    side: THREE.DoubleSide,
   });
 
   const geometry = new THREE.CylinderGeometry(
-    CLAW_ARM_LENGTH / 2 / Math.cos(Math.PI / 4),
+    CLAW_ARM_RADIUS,
+    CLAW_ARM_RADIUS,
+    CLAW_ARM_WIDTH,
+    64,
+    1,
+    true,
     0,
-    CLAW_ARM_HEIGHT,
-    3,
-    1
+    Math.PI / 3
   );
   const mesh = new THREE.Mesh(geometry, material);
 
   clawArm.add(mesh);
-  clawArm.position.set(0, -CLAW_BASE_HEIGHT / 2 - CLAW_ARM_HEIGHT / 2, 0);
-
-  clawArm.userData.angle = clawArm.rotation.z;
+  clawArm.position.set(0, -CLAW_ARM_RADIUS, 0);
+  clawArm.rotation.x = -Math.PI / 2; // Place the claw arm vertically
 
   const clawArm2 = clawArm.clone();
   const clawArm3 = clawArm.clone();
   const clawArm4 = clawArm.clone();
 
-  clawArm.position.setX(CLAW_BASE_WIDTH / 2 - CLAW_ARM_LENGTH / 2);
-  clawArm.position.setZ(CLAW_BASE_WIDTH / 2 - CLAW_ARM_LENGTH / 2);
-  clawArm.rotation.y = Math.PI / 4;
-  clawArm2.position.setX(-CLAW_BASE_WIDTH / 2 + CLAW_ARM_LENGTH / 2);
-  clawArm2.position.setZ(CLAW_BASE_WIDTH / 2 - CLAW_ARM_LENGTH / 2);
-  clawArm2.rotation.y = -Math.PI / 4;
-  clawArm3.position.setX(-CLAW_BASE_WIDTH / 2 + CLAW_ARM_LENGTH / 2);
-  clawArm3.position.setZ(-CLAW_BASE_WIDTH / 2 + CLAW_ARM_LENGTH / 2);
-  clawArm3.rotation.y = -3 * (Math.PI / 4);
-  clawArm4.position.setX(CLAW_BASE_WIDTH / 2 - CLAW_ARM_LENGTH / 2);
-  clawArm4.position.setZ(-CLAW_BASE_WIDTH / 2 + CLAW_ARM_LENGTH / 2);
-  clawArm4.rotation.y = 3 * (Math.PI / 4);
+  // Rotate each arm to the correct orientation
+  clawArm2.rotation.z = -Math.PI / 2;
+  clawArm3.rotation.z = Math.PI;
+  clawArm4.rotation.z = Math.PI / 2;
 
-  clawArms = [clawArm, clawArm2, clawArm3, clawArm4];
+  // Create a rotation axis for each arm, which will be the reference for its
+  // opening and closing
+  const rotAxis = new THREE.Object3D();
+  rotAxis.position.set(CLAW_BASE_WIDTH / 2, -CLAW_BASE_HEIGHT / 2, 0);
+  rotAxis.add(clawArm);
+  rotAxis.rotation.z = -CLAW_ARM_INITIAL_ANGLE;
+  // Function that will be used to rotate the arm around the according axis
+  rotAxis.userData.rotate = (angle) => (rotAxis.rotation.z -= angle);
 
-  parent.add(clawArm);
-  parent.add(clawArm2);
-  parent.add(clawArm3);
-  parent.add(clawArm4);
+  const rotAxis2 = new THREE.Object3D();
+  rotAxis2.position.set(0, -CLAW_BASE_HEIGHT / 2, CLAW_BASE_WIDTH / 2);
+  rotAxis2.add(clawArm2);
+  rotAxis2.rotation.x = CLAW_ARM_INITIAL_ANGLE;
+  rotAxis2.userData.rotate = (angle) => (rotAxis2.rotation.x += angle);
+
+  const rotAxis3 = new THREE.Object3D();
+  rotAxis3.position.set(-CLAW_BASE_WIDTH / 2, -CLAW_BASE_HEIGHT / 2, 0);
+  rotAxis3.add(clawArm3);
+  rotAxis3.rotation.z = CLAW_ARM_INITIAL_ANGLE;
+  rotAxis3.userData.rotate = (angle) => (rotAxis3.rotation.z += angle);
+
+  const rotAxis4 = new THREE.Object3D();
+  rotAxis4.position.set(0, -CLAW_BASE_HEIGHT / 2, -CLAW_BASE_WIDTH / 2);
+  rotAxis4.add(clawArm4);
+  rotAxis4.rotation.x = -CLAW_ARM_INITIAL_ANGLE;
+  rotAxis4.userData.rotate = (angle) => (rotAxis4.rotation.x -= angle);
+
+  clawArms = [rotAxis, rotAxis2, rotAxis3, rotAxis4];
+
+  parent.add(rotAxis);
+  parent.add(rotAxis2);
+  parent.add(rotAxis3);
+  parent.add(rotAxis4);
 }
 
 function addContraPeso(parent) {
@@ -841,6 +866,25 @@ function onKeyDown(e) {
       });
 
       clawGroup.position.y += e.key == "b" ? DELTA : -DELTA;
+      break;
+    case "m":
+    case ",":
+      const DELTA2 = CLAW_ANGLE_RANGE_MAX / 20;
+
+      // Grab the current rotation of the claw arms through the second arm
+      // since its rotation angle is always positive
+      const currentRotation = clawArms[1].rotation.x;
+
+      if (
+        (e.key == "m" && currentRotation - DELTA2 < CLAW_ANGLE_RANGE_MIN) ||
+        (e.key == "," && currentRotation + DELTA2 > CLAW_ANGLE_RANGE_MAX)
+      )
+        return;
+
+      clawArms.forEach((arm) => {
+        arm.userData.rotate(e.key == "m" ? -DELTA2 : DELTA2);
+      });
+
       break;
   }
 }
