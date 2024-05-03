@@ -160,15 +160,15 @@ function createFrontCamera() {
   const camera = new THREE.OrthographicCamera(
     -halfCameraHeight * aspectRatio,
     halfCameraHeight * aspectRatio,
-    halfCameraHeight + 20,
-    -halfCameraHeight + 20,
+    halfCameraHeight,
+    -halfCameraHeight,
     0.1,
     1000
   );
-  camera.position.x = 75;
-  camera.position.y = 50;
+  camera.position.x = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 + 1;
+  camera.position.y = TOTAL_CRANE_HEIGHT / 2;
   camera.position.z = 0;
-  camera.lookAt(scene.position);
+  camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
 
   cameras.push(camera);
 }
@@ -183,15 +183,15 @@ function createSideCamera() {
   const camera = new THREE.OrthographicCamera(
     -halfCameraHeight * aspectRatio,
     halfCameraHeight * aspectRatio,
-    halfCameraHeight + 20,
-    -halfCameraHeight + 20,
+    halfCameraHeight,
+    -halfCameraHeight,
     0.1,
     1000
   );
   camera.position.x = 0;
-  camera.position.y = 60;
-  camera.position.z = 90;
-  camera.lookAt(scene.position);
+  camera.position.y = TOTAL_CRANE_HEIGHT / 2;
+  camera.position.z = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 + 1;
+  camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
 
   cameras.push(camera);
 }
@@ -212,7 +212,7 @@ function createOrthogonalCamera() {
     1000
   );
   camera.position.x = 70;
-  camera.position.y = 60;
+  camera.position.y = TOTAL_CRANE_HEIGHT + 10;
   camera.position.z = 70;
   camera.lookAt(scene.position);
 
@@ -640,8 +640,8 @@ function addTirantesFrente(parent) {
   tiranteFrente.rotation.z = TIRANTE_FRENTE_Z_ANGLE;
 
   const tiranteFrente2 = tiranteFrente.clone();
-  tiranteFrente2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS);
-  tiranteFrente.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS);
+  tiranteFrente2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS + 0.01);
+  tiranteFrente.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS - 0.01);
 
   parent.add(tiranteFrente);
   parent.add(tiranteFrente2);
@@ -675,8 +675,8 @@ function addTirantesTras(parent) {
   tiranteTras.rotation.z = TIRANTE_TRAS_Z_ANGLE;
 
   const tiranteTras2 = tiranteTras.clone();
-  tiranteTras2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS);
-  tiranteTras.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS);
+  tiranteTras2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS + 0.01);
+  tiranteTras.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS - 0.01);
 
   parent.add(tiranteTras);
   parent.add(tiranteTras2);
@@ -765,7 +765,7 @@ function onKeyDown(e) {
     case "3":
     case "4":
     case "5":
-    case "6":  
+    case "6":
       activeCamera = cameras[Number(e.key) - 1];
       break;
     case "g":
