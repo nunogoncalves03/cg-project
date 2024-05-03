@@ -89,11 +89,11 @@ function createScene() {
   "use strict";
 
   scene = new THREE.Scene();
-  // TODO: use a light color as background
-  scene.background = new THREE.Color(0x000000);
+  scene.background = new THREE.Color(0xb8d3d9);
 
   scene.add(new THREE.AxesHelper(10));
 
+  addFloor(scene);
   addCrane(scene);
 }
 
@@ -252,6 +252,33 @@ function createMobileCamera() {
 ////////////////////////
 /* CREATE OBJECT3D(S) */
 ////////////////////////
+function addFloor(parent) {
+  "use strict";
+
+  const floor = new THREE.Object3D();
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x808080,
+    side: THREE.DoubleSide,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+
+  const geometry = new THREE.BoxGeometry(
+    (LANCA_LENGTH + PORTA_LANCA_WIDTH) * 5,
+    (LANCA_LENGTH + PORTA_LANCA_WIDTH) * 5,
+    10,
+    3,
+    3
+  );
+  const mesh = new THREE.Mesh(geometry, material);
+
+  floor.add(mesh);
+  floor.position.y -= 5;
+  floor.rotation.x = Math.PI / 2;
+
+  parent.add(floor);
+}
+
 function addCrane(parent) {
   "use strict";
 
