@@ -10,25 +10,32 @@ import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 const BASE_HEIGHT = 3,
   BASE_LENGTH = 7.2,
   BASE_DEPTH = 4.4;
+
 const TOWER_HEIGHT = 54.75,
   TOWER_WIDTH = 2.4;
+
 const PORTA_LANCA_HEIGHT = 11.4,
   PORTA_LANCA_WIDTH = 1.8;
+
 const CABIN_LENGTH = 2.4,
   CABIN_HEIGHT = 2.4,
   CABIN_DEPTH = 1.8;
 const CABIN_Y_BASELINE = -0.3;
+
 const LANCA_Y_BASELINE = 3.9;
 const LANCA_LENGTH = 63,
   LANCA_DEPTH = PORTA_LANCA_WIDTH,
   LANCA_HEIGHT = 1.8;
+
 const CART_LENGTH = 2,
   CART_HEIGHT = 0.9,
   CART_DEPTH = 1.8;
-const CART_RANGE_MIN = CABIN_LENGTH + CART_LENGTH / 2,
+const CART_RANGE_MIN = CABIN_LENGTH + CART_LENGTH + 5,
   CART_RANGE_MAX = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 - CART_LENGTH / 2;
+
 const CABLE_RADIUS = 0.1,
   CABLE_LENGTH = 24;
+
 const CLAW_BASE_WIDTH = 2,
   CLAW_BASE_HEIGHT = 0.6;
 const CLAW_ARM_WIDTH = 0.5,
@@ -36,6 +43,8 @@ const CLAW_ARM_WIDTH = 0.5,
   CLAW_ARM_INITIAL_ANGLE = Math.PI / 4;
 const CLAW_ANGLE_RANGE_MIN = 0,
   CLAW_ANGLE_RANGE_MAX = (3 * Math.PI) / 8;
+const CLAW_COLLISION_SPHERE_RADIUS = 4;
+
 const CONTRA_LANCA_LENGTH = 12,
   CONTRA_LANCA_DEPTH = PORTA_LANCA_WIDTH,
   CONTRA_LANCA_HEIGHT = 0.6;
@@ -73,6 +82,15 @@ const TIRANTE_TRAS_Z_ANGLE = -Math.atan(
   TIRANTE_TRAS_X_DISTANCE / TIRANTE_TRAS_HEIGHT
 );
 
+const CONTAINER_ELEMENTS_THICKNESS = 0.5;
+const CONTAINER_BASE_LENGTH = 20;
+const CONTAINER_BASE_DEPTH = 15;
+const CONTAINER_WALL_HEIGHT = 6;
+
+const LOAD_CUBE_SIZE = 3;
+const LOAD_RADIUS = 2;
+const LOAD_TUBE_RADIUS = 0.2;
+
 const DEFAULT_WIREFRAME = false;
 
 var scene, renderer;
@@ -80,7 +98,10 @@ var scene, renderer;
 var cameras = [];
 var activeCamera;
 
-var upperGroup, cartGroup, cables, clawGroup, clawArms;
+var upperGroup, cartGroup, cables, clawGroup, clawArms, container;
+
+var loadObjects = [];
+var collisionSphere;
 
 var keyToHUDElementMap = new Map();
 
@@ -95,6 +116,16 @@ function createScene() {
 
   addFloor(scene);
   addCrane(scene);
+  addContainer(scene);
+  addLoads(scene);
+
+  // FIXME: move to correct place
+  const pos = new THREE.Vector3();
+  clawGroup.getWorldPosition(pos);
+  collisionSphere = new THREE.Sphere(
+    new THREE.Vector3(pos.x, pos.y - CLAW_BASE_HEIGHT / 2, pos.z),
+    CLAW_COLLISION_SPHERE_RADIUS
+  );
 }
 
 //////////////////////
@@ -124,7 +155,7 @@ function createPerspectiveCamera() {
   );
   camera.position.x = 20;
   camera.position.y = 70;
-  camera.position.z = 75;
+  camera.position.z = 120;
   camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
 
   cameras.push(camera);
@@ -134,7 +165,7 @@ function createTopCamera() {
   "use strict";
 
   const aspectRatio = window.innerWidth / window.innerHeight;
-  const cameraWidth = 150;
+  const cameraWidth = 260;
   const halfCameraHeight = cameraWidth / aspectRatio / 2;
 
   const camera = new THREE.OrthographicCamera(
@@ -203,7 +234,7 @@ function createOrthogonalCamera() {
   "use strict";
 
   const aspectRatio = window.innerWidth / window.innerHeight;
-  const cameraWidth = 150;
+  const cameraWidth = 240;
   const halfCameraHeight = cameraWidth / aspectRatio / 2;
 
   const camera = new THREE.OrthographicCamera(
@@ -732,6 +763,164 @@ function addTirantesTras(parent) {
 
   parent.add(tiranteTras);
   parent.add(tiranteTras2);
+}
+
+function addContainer(parent) {
+  "use strict";
+
+  container = new THREE.Object3D();
+  container.position.set(17, 0, 0);
+
+  const baseMaterial = new THREE.MeshBasicMaterial({
+    color: 0x546966,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+
+  const baseGeometry = new THREE.BoxGeometry(
+    CONTAINER_BASE_LENGTH,
+    CONTAINER_ELEMENTS_THICKNESS,
+    CONTAINER_BASE_DEPTH
+  );
+  const base = new THREE.Mesh(baseGeometry, baseMaterial);
+
+  base.position.set(0, CONTAINER_ELEMENTS_THICKNESS / 2, 0);
+
+  // Create the long side walls
+  const longWallGeometry = new THREE.BoxGeometry(
+    CONTAINER_BASE_LENGTH,
+    CONTAINER_WALL_HEIGHT,
+    CONTAINER_ELEMENTS_THICKNESS
+  );
+  const wallMaterial = new THREE.MeshBasicMaterial({
+    color: 0x166960,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+
+  const wall1 = new THREE.Mesh(longWallGeometry, wallMaterial);
+  wall1.position.set(
+    0,
+    CONTAINER_ELEMENTS_THICKNESS / 2 + CONTAINER_WALL_HEIGHT / 2,
+    0
+  );
+
+  const wall2 = wall1.clone();
+  wall1.position.setZ(
+    -CONTAINER_BASE_DEPTH / 2 + CONTAINER_ELEMENTS_THICKNESS / 2
+  );
+  wall2.position.setZ(
+    CONTAINER_BASE_DEPTH / 2 - CONTAINER_ELEMENTS_THICKNESS / 2
+  );
+
+  base.add(wall1);
+  base.add(wall2);
+
+  // Create the short side walls
+  const wallGeometry2 = new THREE.BoxGeometry(
+    CONTAINER_ELEMENTS_THICKNESS,
+    CONTAINER_WALL_HEIGHT,
+    CONTAINER_BASE_DEPTH
+  );
+  const wall3 = new THREE.Mesh(wallGeometry2, wallMaterial);
+  wall3.position.set(
+    0,
+    CONTAINER_ELEMENTS_THICKNESS / 2 + CONTAINER_WALL_HEIGHT / 2,
+    0
+  );
+
+  const wall4 = wall3.clone();
+  wall3.position.setX(
+    -CONTAINER_BASE_LENGTH / 2 + CONTAINER_ELEMENTS_THICKNESS / 2
+  );
+  wall4.position.setX(
+    CONTAINER_BASE_LENGTH / 2 - CONTAINER_ELEMENTS_THICKNESS / 2
+  );
+
+  base.add(wall3);
+  base.add(wall4);
+
+  container.add(base);
+
+  parent.add(container);
+
+  container.userData.collisionBox = new THREE.Box3().setFromObject(container);
+}
+
+function addLoads(parent) {
+  let geometry = new THREE.BoxGeometry(
+    LOAD_CUBE_SIZE,
+    LOAD_CUBE_SIZE,
+    LOAD_CUBE_SIZE
+  );
+  let material = new THREE.MeshBasicMaterial({ color: 0x461787 });
+  const cube = new THREE.Mesh(geometry, material);
+  generateLoadPosition(cube);
+
+  geometry = new THREE.DodecahedronGeometry(LOAD_RADIUS);
+  material = new THREE.MeshBasicMaterial({ color: 0x461787 });
+  const dodecahedron = new THREE.Mesh(geometry, material);
+  generateLoadPosition(dodecahedron);
+
+  geometry = new THREE.IcosahedronGeometry(LOAD_RADIUS);
+  material = new THREE.MeshBasicMaterial({ color: 0x461787 });
+  const icosahedron = new THREE.Mesh(geometry, material);
+  generateLoadPosition(icosahedron);
+
+  geometry = new THREE.TorusGeometry(LOAD_RADIUS - 0.5, LOAD_TUBE_RADIUS);
+  material = new THREE.MeshBasicMaterial({ color: 0x461787 });
+  const torus = new THREE.Mesh(geometry, material);
+  generateLoadPosition(torus);
+
+  geometry = new THREE.TorusKnotGeometry(LOAD_RADIUS - 0.5, LOAD_TUBE_RADIUS);
+  material = new THREE.MeshBasicMaterial({ color: 0x461787 });
+  const torusKnot = new THREE.Mesh(geometry, material);
+  generateLoadPosition(torusKnot);
+
+  parent.add(cube);
+  parent.add(dodecahedron);
+  parent.add(icosahedron);
+  parent.add(torus);
+  parent.add(torusKnot);
+}
+
+function generateLoadPosition(loadObject) {
+  "use strict";
+
+  let x, y, z, angle, distance, height, width, box, sphere;
+  box = new THREE.Box3().setFromObject(loadObject);
+  height = box.max.y - box.min.y;
+  width = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+
+  do {
+    angle = Math.random() * 2 * Math.PI;
+    distance = Math.random() * (CART_RANGE_MAX - CART_RANGE_MIN - width);
+    x = Math.cos(angle) * (distance + CART_RANGE_MIN);
+    z = Math.sin(angle) * (distance + CART_RANGE_MIN);
+    y = height / 2;
+
+    loadObject.position.set(x, y, z);
+    sphere = new THREE.Sphere(loadObject.position, Math.max(width, height) / 2);
+  } while (existsLoadCollision(sphere));
+
+  loadObject.userData.collisionSphere = sphere;
+  loadObjects.push(loadObject);
+}
+
+function existsLoadCollision(sphere) {
+  "use strict";
+
+  const sphere_ = new THREE.Sphere().set(
+    sphere.center,
+    sphere.radius + CLAW_COLLISION_SPHERE_RADIUS
+  );
+
+  if (sphere_.intersectsBox(container.userData.collisionBox)) return true;
+
+  for (const loadObject of loadObjects) {
+    if (sphere_.intersectsSphere(loadObject.userData.collisionSphere))
+      return true;
+  }
+
+  return false;
 }
 
 //////////////////////

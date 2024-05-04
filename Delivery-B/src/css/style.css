@@ -24,6 +24,10 @@ body {
   padding: 1rem;
   color: black;
   font-size: 0.9rem;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
 }
 
 #hud-container .keybind-entry {
