@@ -91,6 +91,12 @@ const LOAD_CUBE_SIZE = 3;
 const LOAD_RADIUS = 2;
 const LOAD_TUBE_RADIUS = 0.2;
 
+// Animation speeds
+const UPPER_GROUP_ROTATION_SPEED = 0.65;
+const CART_MOVEMENT_SPEED = 8;
+const CLAW_RAISE_SPEED = 8;
+const CLAW_ARM_ROTATION_SPEED = CLAW_ANGLE_RANGE_MAX;
+
 const DEFAULT_WIREFRAME = false;
 
 var scene, renderer;
@@ -111,6 +117,18 @@ var cameraKeysMap = new Map();
 const clock = new THREE.Clock();
 var deltaTime;
 
+/**
+ * empty
+ * grasping
+ * raising
+ * rotating
+ * aligning
+ * lowering
+ * placing
+ * returning
+ */
+var clawState = "empty";
+
 /////////////////////
 /* CREATE SCENE(S) */
 /////////////////////
@@ -124,14 +142,6 @@ function createScene() {
   addCrane(scene);
   addContainer(scene);
   addLoads(scene);
-
-  // FIXME: move to correct place
-  const pos = new THREE.Vector3();
-  clawGroup.getWorldPosition(pos);
-  collisionSphere = new THREE.Sphere(
-    new THREE.Vector3(pos.x, pos.y - CLAW_BASE_HEIGHT / 2, pos.z),
-    CLAW_COLLISION_SPHERE_RADIUS
-  );
 }
 
 //////////////////////
@@ -937,13 +947,105 @@ function existsLoadCollision(sphere) {
 //////////////////////
 function checkCollisions() {
   "use strict";
+
+  const clawPos = new THREE.Vector3();
+  clawGroup.getWorldPosition(clawPos);
+  collisionSphere = new THREE.Sphere(
+    new THREE.Vector3(clawPos.x, clawPos.y + CLAW_BASE_HEIGHT / 2, clawPos.z),
+    CLAW_COLLISION_SPHERE_RADIUS
+  );
+
+  for (const loadObject of loadObjects) {
+    if (collisionSphere.intersectsSphere(loadObject.userData.collisionSphere)) {
+      loadObjects.splice(loadObjects.indexOf(loadObject), 1);
+      return loadObject;
+    }
+  }
+
+  return null;
 }
 
 ///////////////////////
 /* HANDLE COLLISIONS */
 ///////////////////////
+function raiseLoad() {
+  "use strict";
+
+  var clawPos = new THREE.Vector3();
+  clawGroup.getWorldPosition(clawPos);
+
+  const targetPos = new THREE.Vector3(
+    clawGroup.x,
+    TOWER_HEIGHT / 2,
+    clawGroup.z
+  );
+
+  return moveClaw(CLAW_RAISE_SPEED, targetPos.y);
+}
+
+function rotateLoad() {
+  "use strict";
+
+  let currentAngle = upperGroup.rotation.y % (2 * Math.PI);
+  if (currentAngle < 0) currentAngle += 2 * Math.PI;
+
+  // Determine if the rotation should be clockwise or counterclockwise
+  // (which is the shortest path to the target angle)
+  const rotationSpeed =
+    currentAngle > Math.PI
+      ? UPPER_GROUP_ROTATION_SPEED
+      : -UPPER_GROUP_ROTATION_SPEED;
+
+  return rotateUpperGroup(rotationSpeed, true);
+}
+
 function handleCollisions() {
   "use strict";
+
+  if (clawState === "empty") {
+    const loadObject = checkCollisions();
+    if (loadObject === null) return;
+
+    clawState = "grasping";
+
+    // clear keys to prevent HUD showing pressed key when animation is running
+    clearKeys(false);
+
+    // Move the load object to the claw
+    loadObject.position.set(
+      0,
+      -loadObject.userData.collisionSphere.radius - CLAW_BASE_HEIGHT / 2,
+      0
+    );
+    clawGroup.add(loadObject);
+  }
+
+  if (clawState === "grasping") {
+    // TODO: animate claw closing
+    clawState = "raising";
+  }
+
+  if (clawState === "raising") {
+    const done = raiseLoad();
+    if (done) {
+      clawState = "rotating";
+    } else {
+      return;
+    }
+  }
+
+  if (clawState === "rotating") {
+    const done = rotateLoad();
+    if (done) {
+      clawState = "aligning";
+    } else {
+      return;
+    }
+  }
+
+  if (clawState === "aligning") {
+    clawState = "empty";
+  }
 }
 
 ////////////
@@ -953,9 +1055,27 @@ function switchCamera(keyNumber) {
   activeCamera = cameras[keyNumber - 1];
 }
 
-function rotateUpperGroup(rotationSpeed) {
-  const angle = rotationSpeed * deltaTime;
+function rotateUpperGroup(rotationSpeed, rotateToZero = false) {
+  let angle = rotationSpeed * deltaTime;
+
+  let currentAngle = upperGroup.rotation.y % (2 * Math.PI);
+  if (currentAngle < 0) currentAngle += 2 * Math.PI;
+
+  if (
+    rotateToZero &&
+    (currentAngle === 0 ||
+      (angle > 0 && currentAngle + angle > 2 * Math.PI) ||
+      (angle < 0 && currentAngle < angle))
+  ) {
+    angle = -currentAngle % (2 * Math.PI);
+    if (angle < 0) angle += 2 * Math.PI;
+  }
+
   upperGroup.rotation.y += angle;
+  upperGroup.rotation.y = upperGroup.rotation.y % (2 * Math.PI);
+  if (upperGroup.rotation.y < 0) upperGroup.rotation.y += 2 * Math.PI;
+
+  return upperGroup.rotation.y === 0;
 }
 
 function moveCart(movementSpeed) {
@@ -968,26 +1088,39 @@ function moveCart(movementSpeed) {
   }
 }
 
-function adjustCableLength(movementSpeed) {
-  const delta = movementSpeed * deltaTime;
+function moveClaw(movementSpeed, targetY = null) {
+  let delta = movementSpeed * deltaTime;
   const currentLength = cables[0].userData.length;
 
   if (
-    currentLength + delta <= 4 * CLAW_BASE_HEIGHT ||
-    currentLength + delta > TOWER_HEIGHT // FIXME: change to a more accurate value
+    currentLength - delta <= 4 * CLAW_BASE_HEIGHT ||
+    currentLength - delta > TOWER_HEIGHT // FIXME: change to a more accurate value
   )
-    return;
+    return true;
 
-  const newHeight = currentLength + delta;
-  const factor = newHeight / CABLE_LENGTH;
+  const clawPos = new THREE.Vector3();
+  clawGroup.getWorldPosition(clawPos);
+
+  if (
+    targetY !== null &&
+    ((movementSpeed > 0 && clawPos.y + delta > targetY) ||
+      (movementSpeed < 0 && clawPos.y + delta < targetY))
+  ) {
+    delta = targetY - clawPos.y;
+  }
+
+  const newLength = currentLength - delta;
+  const factor = newLength / CABLE_LENGTH;
 
   cables.forEach((cable) => {
-    cable.position.y -= delta / 2;
+    cable.position.y += delta / 2;
     cable.scale.y = factor;
-    cable.userData.length = newHeight;
+    cable.userData.length = newLength;
   });
 
-  clawGroup.position.y -= delta;
+  clawGroup.position.y += delta;
+
+  return clawPos.y + delta === targetY;
 }
 
 function adjustClawArmRotation(rotationSpeed) {
@@ -1023,6 +1156,10 @@ function update() {
   }
 
   // TODO: check collisions and animation state
+  handleCollisions();
+
+  // If the animation is running, don't allow the user to interact with the crane
+  if (clawState !== "empty") return;
 
   for (const [key, callback] of movementKeysMap) {
     const keyElement = keyToHUDElementMap.get(key);
@@ -1060,11 +1197,7 @@ function init() {
   window.addEventListener("keyup", onKeyUp);
 
   // When window loses focus, clear all pressed keys
-  window.addEventListener("blur", () => {
-    [...movementKeysMap.keys(), ...cameraKeysMap.keys()].forEach((key) =>
-      onKeyUp({ key })
-    );
-  });
+  window.addEventListener("blur", () => clearKeys());
 }
 
 /////////////////////
@@ -1114,35 +1247,35 @@ function onKeyDown(e) {
       cameraKeysMap.set(key, callback);
       break;
     case "q":
-      callback = () => rotateUpperGroup(0.65);
+      callback = () => rotateUpperGroup(UPPER_GROUP_ROTATION_SPEED);
       movementKeysMap.set(key, callback);
       break;
     case "a":
-      callback = () => rotateUpperGroup(-0.65);
+      callback = () => rotateUpperGroup(-UPPER_GROUP_ROTATION_SPEED);
       movementKeysMap.set(key, callback);
       break;
     case "s":
-      callback = () => moveCart(-8);
+      callback = () => moveCart(-CART_MOVEMENT_SPEED);
       movementKeysMap.set(key, callback);
       break;
     case "w":
-      callback = () => moveCart(8);
+      callback = () => moveCart(CART_MOVEMENT_SPEED);
       movementKeysMap.set(key, callback);
       break;
     case "e":
-      callback = () => adjustCableLength(-8);
+      callback = () => moveClaw(CLAW_RAISE_SPEED);
       movementKeysMap.set(key, callback);
       break;
     case "d":
-      callback = () => adjustCableLength(8);
+      callback = () => moveClaw(-CLAW_RAISE_SPEED);
       movementKeysMap.set(key, callback);
       break;
     case "r":
-      callback = () => adjustClawArmRotation(-CLAW_ANGLE_RANGE_MAX);
+      callback = () => adjustClawArmRotation(-CLAW_ARM_ROTATION_SPEED);
       movementKeysMap.set(key, callback);
       break;
     case "f":
-      callback = () => adjustClawArmRotation(CLAW_ANGLE_RANGE_MAX);
+      callback = () => adjustClawArmRotation(CLAW_ARM_ROTATION_SPEED);
       movementKeysMap.set(key, callback);
       break;
     case "t":
@@ -1258,6 +1391,15 @@ function createHUD() {
   });
 
   body.appendChild(hud);
+}
+
+function clearKeys(clearCameraKeys = true, clearMovementKeys = true) {
+  let keysToClear = [];
+  if (clearCameraKeys) keysToClear = [...cameraKeysMap.keys()];
+  if (clearMovementKeys)
+    keysToClear = [...keysToClear, ...movementKeysMap.keys()];
+
+  keysToClear.forEach((key) => onKeyUp({ key }));
 }
 
 init();
