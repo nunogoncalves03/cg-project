@@ -105,6 +105,12 @@ var collisionSphere;
 
 var keyToHUDElementMap = new Map();
 
+var movementKeysMap = new Map();
+var cameraKeysMap = new Map();
+
+const clock = new THREE.Clock();
+var deltaTime;
+
 /////////////////////
 /* CREATE SCENE(S) */
 /////////////////////
@@ -860,7 +866,7 @@ function addLoads(parent) {
   const dodecahedron = new THREE.Mesh(geometry, material);
   generateLoadPosition(dodecahedron);
 
-  geometry = new THREE.IcosahedronGeometry(LOAD_RADIUS);
+  geometry = new THREE.IcosahedronGeometry(LOAD_RADIUS - 0.2);
   material = new THREE.MeshBasicMaterial({ color: 0x461787 });
   const icosahedron = new THREE.Mesh(geometry, material);
   generateLoadPosition(icosahedron);
@@ -870,7 +876,10 @@ function addLoads(parent) {
   const torus = new THREE.Mesh(geometry, material);
   generateLoadPosition(torus);
 
-  geometry = new THREE.TorusKnotGeometry(LOAD_RADIUS - 0.5, LOAD_TUBE_RADIUS);
+  geometry = new THREE.TorusKnotGeometry(
+    LOAD_RADIUS - 0.7,
+    LOAD_TUBE_RADIUS - 0.05
+  );
   material = new THREE.MeshBasicMaterial({ color: 0x461787 });
   const torusKnot = new THREE.Mesh(geometry, material);
   generateLoadPosition(torusKnot);
@@ -940,8 +949,86 @@ function handleCollisions() {
 ////////////
 /* UPDATE */
 ////////////
+function switchCamera(keyNumber) {
+  activeCamera = cameras[keyNumber - 1];
+}
+
+function rotateUpperGroup(rotationSpeed) {
+  const angle = rotationSpeed * deltaTime;
+  upperGroup.rotation.y += angle;
+}
+
+function moveCart(movementSpeed) {
+  const delta = movementSpeed * deltaTime;
+  if (
+    cartGroup.position.x + delta < CART_RANGE_MAX &&
+    cartGroup.position.x + delta > CART_RANGE_MIN
+  ) {
+    cartGroup.position.x += delta;
+  }
+}
+
+function adjustCableLength(movementSpeed) {
+  const delta = movementSpeed * deltaTime;
+  const currentLength = cables[0].userData.length;
+
+  if (
+    currentLength + delta <= 4 * CLAW_BASE_HEIGHT ||
+    currentLength + delta > TOWER_HEIGHT // FIXME: change to a more accurate value
+  )
+    return;
+
+  const newHeight = currentLength + delta;
+  const factor = newHeight / CABLE_LENGTH;
+
+  cables.forEach((cable) => {
+    cable.position.y -= delta / 2;
+    cable.scale.y = factor;
+    cable.userData.length = newHeight;
+  });
+
+  clawGroup.position.y -= delta;
+}
+
+function adjustClawArmRotation(rotationSpeed) {
+  const angle = rotationSpeed * deltaTime;
+  const currentRotation = clawArms[1].rotation.x;
+
+  if (
+    currentRotation + angle < CLAW_ANGLE_RANGE_MIN ||
+    currentRotation + angle > CLAW_ANGLE_RANGE_MAX
+  )
+    return;
+
+  clawArms.forEach((arm) => {
+    arm.userData.rotate(angle);
+  });
+}
+
+function toggleWireframe() {
+  scene.traverse(function (child) {
+    if (child instanceof THREE.Mesh) {
+      child.material.wireframe = !child.material.wireframe;
+    }
+  });
+}
+
 function update() {
   "use strict";
+
+  for (const [key, callback] of cameraKeysMap) {
+    const keyElement = keyToHUDElementMap.get(key);
+    keyElement.classList.add("active");
+    callback();
+  }
+
+  // TODO: check collisions and animation state
+
+  for (const [key, callback] of movementKeysMap) {
+    const keyElement = keyToHUDElementMap.get(key);
+    keyElement.classList.add("active");
+    callback();
+  }
 }
 
 /////////////
@@ -971,6 +1058,13 @@ function init() {
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+
+  // When window loses focus, clear all pressed keys
+  window.addEventListener("blur", () => {
+    [...movementKeysMap.keys(), ...cameraKeysMap.keys()].forEach((key) =>
+      onKeyUp({ key })
+    );
+  });
 }
 
 /////////////////////
@@ -979,6 +1073,8 @@ function init() {
 function animate() {
   "use strict";
 
+  deltaTime = clock.getDelta();
+  update();
   render();
 
   requestAnimationFrame(animate);
@@ -1002,98 +1098,61 @@ function onKeyDown(e) {
   const y = camera.position.y;
   const z = camera.position.z;
 
-  const keyElement = keyToHUDElementMap.get(e.key.toLowerCase());
-  if (keyElement) {
-    keyElement.classList.add("active");
-  }
-
-  switch (e.key) {
+  let callback;
+  const key = e.key.toLowerCase();
+  switch (key) {
     case "1":
     case "2":
     case "3":
     case "4":
     case "5":
     case "6":
-      activeCamera = cameras[Number(e.key) - 1];
+      callback = () => {
+        switchCamera(Number(key));
+        cameraKeysMap.delete(key);
+      };
+      cameraKeysMap.set(key, callback);
       break;
     case "q":
-    case "Q":
-      upperGroup.rotation.y += 0.05;
+      callback = () => rotateUpperGroup(0.65);
+      movementKeysMap.set(key, callback);
       break;
     case "a":
-    case "A":
-      upperGroup.rotation.y -= 0.05;
+      callback = () => rotateUpperGroup(-0.65);
+      movementKeysMap.set(key, callback);
       break;
     case "s":
-    case "S":
-      if (cartGroup.position.x - 0.4 > CART_RANGE_MIN) {
-        cartGroup.position.x -= 0.4;
-      }
+      callback = () => moveCart(-8);
+      movementKeysMap.set(key, callback);
       break;
     case "w":
-    case "W":
-      if (cartGroup.position.x + 0.4 < CART_RANGE_MAX) {
-        cartGroup.position.x += 0.4;
-      }
+      callback = () => moveCart(8);
+      movementKeysMap.set(key, callback);
       break;
     case "e":
-    case "E":
+      callback = () => adjustCableLength(-8);
+      movementKeysMap.set(key, callback);
+      break;
     case "d":
-    case "D":
-      const DELTA = 0.4;
-
-      const currentLength = cables[0].userData.length;
-
-      if (
-        ((e.key == "e" || e.key == "E") && currentLength <= 4 * DELTA) ||
-        ((e.key == "d" || e.key == "D") && currentLength + DELTA > TOWER_HEIGHT)
-      )
-        return;
-
-      const newHeight =
-        currentLength - (e.key == "e" || e.key == "E" ? DELTA : -DELTA);
-      const factor = newHeight / CABLE_LENGTH;
-
-      cables.forEach((cable) => {
-        cable.position.y +=
-          e.key == "e" || e.key == "E" ? DELTA / 2 : -DELTA / 2;
-        cable.scale.y = factor;
-        cable.userData.length = newHeight;
-      });
-
-      clawGroup.position.y += e.key == "e" || e.key == "E" ? DELTA : -DELTA;
+      callback = () => adjustCableLength(8);
+      movementKeysMap.set(key, callback);
       break;
     case "r":
-    case "R":
+      callback = () => adjustClawArmRotation(-CLAW_ANGLE_RANGE_MAX);
+      movementKeysMap.set(key, callback);
+      break;
     case "f":
-    case "F":
-      const DELTA2 = CLAW_ANGLE_RANGE_MAX / 20;
-
-      // Grab the current rotation of the claw arms through the second arm
-      // since its rotation angle is always positive
-      const currentRotation = clawArms[1].rotation.x;
-
-      if (
-        ((e.key == "r" || e.key == "R") &&
-          currentRotation - DELTA2 < CLAW_ANGLE_RANGE_MIN) ||
-        ((e.key == "f" || e.key == "F") &&
-          currentRotation + DELTA2 > CLAW_ANGLE_RANGE_MAX)
-      )
-        return;
-
-      clawArms.forEach((arm) => {
-        arm.userData.rotate(e.key == "r" || e.key == "R" ? -DELTA2 : DELTA2);
-      });
-
+      callback = () => adjustClawArmRotation(CLAW_ANGLE_RANGE_MAX);
+      movementKeysMap.set(key, callback);
       break;
     case "t":
-    case "T":
-      scene.traverse(function (child) {
-        if (child instanceof THREE.Mesh) {
-          child.material.wireframe = !child.material.wireframe;
-        }
-      });
+      callback = () => {
+        toggleWireframe();
+        cameraKeysMap.delete(key);
+      };
+      cameraKeysMap.set(key, callback);
       break;
+    // TODO: remove following keys
     case "z":
       camera.position.x -= 1;
       break;
@@ -1131,7 +1190,12 @@ function onKeyDown(e) {
 function onKeyUp(e) {
   "use strict";
 
-  const keyElement = keyToHUDElementMap.get(e.key.toLowerCase());
+  const key = e.key.toLowerCase();
+
+  cameraKeysMap.delete(key);
+  movementKeysMap.delete(key);
+
+  const keyElement = keyToHUDElementMap.get(key);
   if (keyElement) {
     keyElement.classList.remove("active");
   }
