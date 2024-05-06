@@ -117,6 +117,8 @@ var cameraKeysMap = new Map();
 const clock = new THREE.Clock();
 var deltaTime;
 
+var heldObject;
+
 /**
  * empty
  * grasping
@@ -785,7 +787,7 @@ function addContainer(parent) {
   "use strict";
 
   container = new THREE.Object3D();
-  container.position.set(17, 0, 0);
+  container.position.set(CART_RANGE_MIN + CONTAINER_BASE_LENGTH / 2, 0, 0);
 
   const baseMaterial = new THREE.MeshBasicMaterial({
     color: 0x546966,
@@ -921,6 +923,7 @@ function generateLoadPosition(loadObject) {
   } while (existsLoadCollision(sphere));
 
   loadObject.userData.collisionSphere = sphere;
+  loadObject.userData.height = height;
   loadObjects.push(loadObject);
 }
 
@@ -932,10 +935,11 @@ function existsLoadCollision(sphere) {
     sphere.radius + CLAW_COLLISION_SPHERE_RADIUS
   );
 
-  if (sphere_.intersectsBox(container.userData.collisionBox)) return true;
+  if (checkBoxSphereIntersection(container.userData.collisionBox, sphere_))
+    return true;
 
   for (const loadObject of loadObjects) {
-    if (sphere_.intersectsSphere(loadObject.userData.collisionSphere))
+    if (checkSphereIntersections(sphere_, loadObject.userData.collisionSphere))
       return true;
   }
 
@@ -956,13 +960,59 @@ function checkCollisions() {
   );
 
   for (const loadObject of loadObjects) {
-    if (collisionSphere.intersectsSphere(loadObject.userData.collisionSphere)) {
+    if (
+      checkSphereIntersections(
+        collisionSphere,
+        loadObject.userData.collisionSphere
+      )
+    ) {
       loadObjects.splice(loadObjects.indexOf(loadObject), 1);
       return loadObject;
     }
   }
 
   return null;
+}
+
+function checkSphereIntersections(sphere1, sphere2) {
+  "use strict";
+
+  let distance = new THREE.Vector3();
+
+  distance.subVectors(sphere1.center, sphere2.center);
+
+  if (distance.length() <= sphere1.radius + sphere2.radius) {
+    return true;
+  }
+
+  return false;
+}
+
+function checkBoxSphereIntersection(box, sphere) {
+  "use strict";
+
+  let boxCenter = new THREE.Vector3();
+  boxCenter.set(
+    (box.min.x + box.max.x) / 2,
+    (box.min.y + box.max.y) / 2,
+    (box.min.z + box.max.z) / 2
+  );
+
+  let closestSpherePoint = new THREE.Vector3();
+  sphere.clampPoint(boxCenter, closestSpherePoint);
+
+  if (
+    box.min.y <= closestSpherePoint.y &&
+    box.max.y >= closestSpherePoint.y &&
+    box.min.x <= closestSpherePoint.x &&
+    box.max.x >= closestSpherePoint.x &&
+    box.min.z <= closestSpherePoint.z &&
+    box.max.z >= closestSpherePoint.z
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 ///////////////////////
@@ -999,12 +1049,39 @@ function rotateLoad() {
   return rotateUpperGroup(rotationSpeed, true);
 }
 
+function alignLoad() {
+  "use strict";
+
+  const targetX = CART_RANGE_MIN + CONTAINER_BASE_LENGTH / 2;
+  const movementSpeed =
+    cartGroup.position.x < targetX ? CART_MOVEMENT_SPEED : -CART_MOVEMENT_SPEED;
+
+  return moveCart(movementSpeed, targetX);
+}
+
+function lowerLoad() {
+  "use strict";
+
+  var clawPos = new THREE.Vector3();
+  clawGroup.getWorldPosition(clawPos);
+
+  const targetPos = new THREE.Vector3(
+    clawGroup.x,
+    CONTAINER_ELEMENTS_THICKNESS +
+      -heldObject.position.y +
+      heldObject.userData.height / 2,
+    clawGroup.z
+  );
+
+  return moveClaw(-CLAW_RAISE_SPEED, targetPos.y);
+}
+
 function handleCollisions() {
   "use strict";
 
   if (clawState === "empty") {
-    const loadObject = checkCollisions();
-    if (loadObject === null) return;
+    heldObject = checkCollisions();
+    if (heldObject === null) return;
 
     clawState = "grasping";
 
@@ -1012,12 +1089,12 @@ function handleCollisions() {
     clearKeys(false);
 
     // Move the load object to the claw
-    loadObject.position.set(
+    heldObject.position.set(
       0,
-      -loadObject.userData.collisionSphere.radius - CLAW_BASE_HEIGHT / 2,
+      -heldObject.userData.height / 2 - CLAW_BASE_HEIGHT / 2,
       0
     );
-    clawGroup.add(loadObject);
+    clawGroup.add(heldObject);
   }
 
   if (clawState === "grasping") {
@@ -1044,7 +1121,40 @@ function handleCollisions() {
   }
 
   if (clawState === "aligning") {
-    clawState = "empty";
+    const done = alignLoad();
+    if (done) {
+      clawState = "lowering";
+    } else {
+      return;
+    }
+  }
+
+  if (clawState === "lowering") {
+    const done = lowerLoad();
+    if (done) {
+      clawState = "placing";
+    } else {
+      return;
+    }
+  }
+
+  if (clawState === "placing") {
+    const heldObjectPos = new THREE.Vector3();
+    heldObject.getWorldPosition(heldObjectPos);
+    heldObject.position.set(heldObjectPos.x, heldObjectPos.y, heldObject.z);
+    scene.add(heldObject);
+
+    clawGroup.remove(heldObject);
+    clawState = "returning";
+  }
+
+  if (clawState === "returning") {
+    const done = raiseLoad();
+    if (done) {
+      clawState = "empty";
+    } else {
+      return;
+    }
   }
 }
 
@@ -1078,14 +1188,27 @@ function rotateUpperGroup(rotationSpeed, rotateToZero = false) {
   return upperGroup.rotation.y === 0;
 }
 
-function moveCart(movementSpeed) {
-  const delta = movementSpeed * deltaTime;
+function moveCart(movementSpeed, targetX = null) {
+  let delta = movementSpeed * deltaTime;
+
   if (
-    cartGroup.position.x + delta < CART_RANGE_MAX &&
-    cartGroup.position.x + delta > CART_RANGE_MIN
+    cartGroup.position.x + delta > CART_RANGE_MAX ||
+    cartGroup.position.x + delta < CART_RANGE_MIN
   ) {
-    cartGroup.position.x += delta;
+    return true;
   }
+
+  if (
+    targetX !== null &&
+    ((movementSpeed > 0 && cartGroup.position.x + delta > targetX) ||
+      (movementSpeed < 0 && cartGroup.position.x + delta < targetX))
+  ) {
+    delta = targetX - cartGroup.position.x;
+  }
+
+  cartGroup.position.x += delta;
+
+  return cartGroup.position.x === targetX;
 }
 
 function moveClaw(movementSpeed, targetY = null) {
@@ -1094,9 +1217,15 @@ function moveClaw(movementSpeed, targetY = null) {
 
   if (
     currentLength - delta <= 4 * CLAW_BASE_HEIGHT ||
-    currentLength - delta > TOWER_HEIGHT // FIXME: change to a more accurate value
-  )
+    currentLength - delta >
+      LANCA_Y_BASELINE -
+        CART_HEIGHT +
+        TOWER_HEIGHT +
+        BASE_HEIGHT / 2 -
+        CONTAINER_ELEMENTS_THICKNESS // FIXME: change to a more accurate value
+  ) {
     return true;
+  }
 
   const clawPos = new THREE.Vector3();
   clawGroup.getWorldPosition(clawPos);
@@ -1278,7 +1407,7 @@ function onKeyDown(e) {
       callback = () => adjustClawArmRotation(CLAW_ARM_ROTATION_SPEED);
       movementKeysMap.set(key, callback);
       break;
-    case "t":
+    case "7":
       callback = () => {
         toggleWireframe();
         cameraKeysMap.delete(key);
@@ -1349,13 +1478,13 @@ function createHUD() {
     ["D", "Lower the claw"],
     ["R", "Open the claw"],
     ["F", "Close the claw"],
-    ["T", "Toggle wireframe"],
     ["1", "Switch to frontal camera"],
     ["2", "Switch to side camera"],
     ["3", "Switch to top camera"],
     ["4", "Switch to orthogonal camera"],
     ["5", "Switch to perspective camera"],
     ["6", "Switch to claw camera"],
+    ["7", "Toggle wireframe"],
   ]);
 
   function isAlpha(c) {
