@@ -83,8 +83,8 @@ const TIRANTE_TRAS_Z_ANGLE = -Math.atan(
 );
 
 const CONTAINER_ELEMENTS_THICKNESS = 0.5;
-const CONTAINER_BASE_LENGTH = 20;
-const CONTAINER_BASE_DEPTH = 15;
+const CONTAINER_BASE_LENGTH = 27;
+const CONTAINER_BASE_DEPTH = 10;
 const CONTAINER_WALL_HEIGHT = 6;
 
 const LOAD_CUBE_SIZE = 3;
@@ -117,7 +117,8 @@ var cameraKeysMap = new Map();
 const clock = new THREE.Clock();
 var deltaTime;
 
-var heldObject;
+var heldObject = null,
+  lastPlacedObject = null;
 
 /**
  * empty
@@ -924,6 +925,7 @@ function generateLoadPosition(loadObject) {
 
   loadObject.userData.collisionSphere = sphere;
   loadObject.userData.height = height;
+  loadObject.userData.xSpan = box.max.x - box.min.x;
   loadObjects.push(loadObject);
 }
 
@@ -991,15 +993,23 @@ function checkSphereIntersections(sphere1, sphere2) {
 function checkBoxSphereIntersection(box, sphere) {
   "use strict";
 
-  let boxCenter = new THREE.Vector3();
-  boxCenter.set(
-    (box.min.x + box.max.x) / 2,
-    (box.min.y + box.max.y) / 2,
-    (box.min.z + box.max.z) / 2
-  );
+  const boxCenter = new THREE.Vector3();
+  box.getCenter(boxCenter);
 
-  let closestSpherePoint = new THREE.Vector3();
-  sphere.clampPoint(boxCenter, closestSpherePoint);
+  // Calculate the vector from the sphere center to the box center
+  const sphereToBox = new THREE.Vector3().copy(boxCenter).sub(sphere.center);
+
+  // If the distance is less than or equal to the sphere radius, the sphere intersects the box
+  if (sphereToBox.length() <= sphere.radius) {
+    return true;
+  }
+
+  // Otherwise, find the closest point on the surface of the sphere to the box center
+  const closestSpherePoint = new THREE.Vector3()
+    .copy(sphereToBox)
+    .normalize()
+    .multiplyScalar(sphere.radius)
+    .add(sphere.center);
 
   if (
     box.min.y <= closestSpherePoint.y &&
@@ -1052,7 +1062,18 @@ function rotateLoad() {
 function alignLoad() {
   "use strict";
 
-  const targetX = CART_RANGE_MIN + CONTAINER_BASE_LENGTH / 2;
+  const GAP = 1.5;
+
+  let targetX = GAP + heldObject.userData.xSpan / 2;
+
+  if (lastPlacedObject !== null) {
+    const lastPos = new THREE.Vector3();
+    lastPlacedObject.getWorldPosition(lastPos);
+    targetX += lastPos.x + lastPlacedObject.userData.xSpan / 2;
+  } else {
+    targetX += CART_RANGE_MIN + CONTAINER_ELEMENTS_THICKNESS;
+  }
+
   const movementSpeed =
     cartGroup.position.x < targetX ? CART_MOVEMENT_SPEED : -CART_MOVEMENT_SPEED;
 
@@ -1068,12 +1089,70 @@ function lowerLoad() {
   const targetPos = new THREE.Vector3(
     clawGroup.x,
     CONTAINER_ELEMENTS_THICKNESS +
+      CONTAINER_WALL_HEIGHT +
       -heldObject.position.y +
       heldObject.userData.height / 2,
     clawGroup.z
   );
 
   return moveClaw(-CLAW_RAISE_SPEED, targetPos.y);
+}
+
+function grabLoad() {
+  "use strict";
+
+  const SPEED = 20;
+
+  const clawPos = new THREE.Vector3();
+  clawGroup.getWorldPosition(clawPos);
+
+  const target = new THREE.Vector3(
+    clawPos.x,
+    clawPos.y - heldObject.userData.height / 2 - CLAW_BASE_HEIGHT / 2,
+    clawPos.z
+  );
+
+  return moveLoad(SPEED, target);
+}
+
+function dropLoad() {
+  "use strict";
+
+  const SPEED = 10;
+
+  const clawPos = new THREE.Vector3();
+  clawGroup.getWorldPosition(clawPos);
+
+  const target = new THREE.Vector3(
+    clawPos.x,
+    CONTAINER_ELEMENTS_THICKNESS + heldObject.userData.height / 2,
+    clawPos.z
+  );
+
+  return moveLoad(SPEED, target);
+}
+
+function moveLoad(speed, targetPos) {
+  "use strict";
+
+  let delta = speed * deltaTime;
+
+  const currentPos = new THREE.Vector3();
+  heldObject.getWorldPosition(currentPos);
+
+  const distance = new THREE.Vector3();
+  distance.subVectors(targetPos, currentPos);
+
+  if (distance.length() < delta) {
+    heldObject.position.set(targetPos.x, targetPos.y, targetPos.z);
+    return true;
+  }
+
+  const direction = distance.normalize();
+
+  heldObject.position.addScaledVector(direction, delta);
+
+  return false;
 }
 
 function handleCollisions() {
@@ -1088,73 +1167,85 @@ function handleCollisions() {
     // clear keys to prevent HUD showing pressed key when animation is running
     clearKeys(false);
 
-    // Move the load object to the claw
-    heldObject.position.set(
-      0,
-      -heldObject.userData.height / 2 - CLAW_BASE_HEIGHT / 2,
-      0
-    );
-    clawGroup.add(heldObject);
+    return;
   }
 
   if (clawState === "grasping") {
-    // TODO: animate claw closing
-    clawState = "raising";
+    const done = grabLoad();
+    if (done) {
+      // Move the load object to the claw
+      heldObject.position.set(
+        0,
+        -heldObject.userData.height / 2 - CLAW_BASE_HEIGHT / 2,
+        0
+      );
+      clawGroup.add(heldObject);
+
+      clawState = "raising";
+    }
+
+    return;
   }
 
   if (clawState === "raising") {
     const done = raiseLoad();
     if (done) {
       clawState = "rotating";
-    } else {
-      return;
     }
+    return;
   }
 
   if (clawState === "rotating") {
     const done = rotateLoad();
     if (done) {
       clawState = "aligning";
-    } else {
-      return;
     }
+    return;
   }
 
   if (clawState === "aligning") {
     const done = alignLoad();
     if (done) {
       clawState = "lowering";
-    } else {
-      return;
     }
+    return;
   }
 
   if (clawState === "lowering") {
     const done = lowerLoad();
     if (done) {
+      // Detach the load object from the claw
+      const heldObjectPos = new THREE.Vector3();
+      heldObject.getWorldPosition(heldObjectPos);
+      heldObject.position.set(
+        heldObjectPos.x,
+        heldObjectPos.y,
+        heldObjectPos.z
+      );
+      scene.add(heldObject);
+      clawGroup.remove(heldObject);
+
       clawState = "placing";
-    } else {
-      return;
     }
+    return;
   }
 
   if (clawState === "placing") {
-    const heldObjectPos = new THREE.Vector3();
-    heldObject.getWorldPosition(heldObjectPos);
-    heldObject.position.set(heldObjectPos.x, heldObjectPos.y, heldObject.z);
-    scene.add(heldObject);
-
-    clawGroup.remove(heldObject);
-    clawState = "returning";
+    const done = dropLoad();
+    if (done) {
+      clawState = "returning";
+    }
+    return;
   }
 
   if (clawState === "returning") {
     const done = raiseLoad();
     if (done) {
       clawState = "empty";
-    } else {
-      return;
+      lastPlacedObject = heldObject;
+      heldObject = null;
     }
+    return;
   }
 }
 
@@ -1222,7 +1313,8 @@ function moveClaw(movementSpeed, targetY = null) {
         CART_HEIGHT +
         TOWER_HEIGHT +
         BASE_HEIGHT / 2 -
-        CONTAINER_ELEMENTS_THICKNESS // FIXME: change to a more accurate value
+        CONTAINER_ELEMENTS_THICKNESS -
+        CLAW_ARM_RADIUS / Math.sin(CLAW_ANGLE_RANGE_MAX)
   ) {
     return true;
   }
@@ -1284,7 +1376,6 @@ function update() {
     callback();
   }
 
-  // TODO: check collisions and animation state
   handleCollisions();
 
   // If the animation is running, don't allow the user to interact with the crane
@@ -1375,6 +1466,13 @@ function onKeyDown(e) {
       };
       cameraKeysMap.set(key, callback);
       break;
+    case "7":
+      callback = () => {
+        toggleWireframe();
+        cameraKeysMap.delete(key);
+      };
+      cameraKeysMap.set(key, callback);
+      break;
     case "q":
       callback = () => rotateUpperGroup(UPPER_GROUP_ROTATION_SPEED);
       movementKeysMap.set(key, callback);
@@ -1406,42 +1504,6 @@ function onKeyDown(e) {
     case "f":
       callback = () => adjustClawArmRotation(CLAW_ARM_ROTATION_SPEED);
       movementKeysMap.set(key, callback);
-      break;
-    case "7":
-      callback = () => {
-        toggleWireframe();
-        cameraKeysMap.delete(key);
-      };
-      cameraKeysMap.set(key, callback);
-      break;
-    // TODO: remove following keys
-    case "z":
-      camera.position.x -= 1;
-      break;
-    case "x":
-      camera.position.x += 1;
-      break;
-    case "c":
-      camera.position.z -= 1; // Decrease the camera's z-coordinate to zoom in
-      break;
-    case "v":
-      camera.position.z += 1; // Increase the camera's z-coordinate to zoom out
-      break;
-    case "ArrowDown":
-      camera.position.y -= 1;
-      break;
-    case "ArrowUp":
-      camera.position.y += 1;
-      break;
-    case "b":
-      camera.position.x = x * Math.cos(0.1) - z * Math.sin(0.1);
-      camera.position.z = x * Math.sin(0.1) + z * Math.cos(0.1);
-      camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
-      break;
-    case "n":
-      camera.position.x = x * Math.cos(-0.1) - z * Math.sin(-0.1);
-      camera.position.z = x * Math.sin(-0.1) + z * Math.cos(-0.1);
-      camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
       break;
   }
 }
