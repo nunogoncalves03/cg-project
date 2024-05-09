@@ -91,6 +91,9 @@ const LOAD_CUBE_SIZE = 3;
 const LOAD_RADIUS = 2;
 const LOAD_TUBE_RADIUS = 0.2;
 
+const LOAD_MIN_COUNT = 5;
+const LOAD_MAX_COUNT = 20;
+
 // Animation speeds
 const UPPER_GROUP_ROTATION_SPEED = 0.65;
 const CART_MOVEMENT_SPEED = 8;
@@ -105,9 +108,10 @@ var cameras = [];
 var activeCamera;
 
 var upperGroup, cartGroup, cables, clawGroup, clawArms, container;
+var materials = [];
 
 var loadObjects = [];
-var collisionSphere;
+var clawCollisionSphere;
 
 var keyToHUDElementMap = new Map();
 
@@ -301,17 +305,23 @@ function createMobileCamera() {
 ////////////////////////
 /* CREATE OBJECT3D(S) */
 ////////////////////////
+function createMeshBasicMaterial(options) {
+  "use strict";
+
+  const material = new THREE.MeshBasicMaterial(options);
+  materials.push(material);
+
+  return material;
+}
+
 function addFloor(parent) {
   "use strict";
 
-  const floor = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0x808080,
     side: THREE.DoubleSide,
     wireframe: DEFAULT_WIREFRAME,
   });
-
   const geometry = new THREE.BoxGeometry(
     (LANCA_LENGTH + PORTA_LANCA_WIDTH) * 5,
     (LANCA_LENGTH + PORTA_LANCA_WIDTH) * 5,
@@ -319,9 +329,9 @@ function addFloor(parent) {
     3,
     3
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  floor.add(mesh);
+  const floor = new THREE.Mesh(geometry, material);
+
   floor.position.y -= 5;
   floor.rotation.x = Math.PI / 2;
 
@@ -341,16 +351,14 @@ function addCrane(parent) {
 function addBase(parent) {
   "use strict";
 
-  const base = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0x00ff00,
     wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(BASE_LENGTH, BASE_HEIGHT, BASE_DEPTH);
-  const mesh = new THREE.Mesh(geometry, material);
 
-  base.add(mesh);
+  const base = new THREE.Mesh(geometry, material);
+
   base.position.set(0, 0, 0);
 
   parent.add(base);
@@ -359,9 +367,7 @@ function addBase(parent) {
 function addTower(parent) {
   "use strict";
 
-  const tower = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0x0000ff,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -370,9 +376,9 @@ function addTower(parent) {
     TOWER_HEIGHT,
     TOWER_WIDTH
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  tower.add(mesh);
+  const tower = new THREE.Mesh(geometry, material);
+
   tower.position.set(0, TOWER_HEIGHT / 2 + BASE_HEIGHT / 2, 0);
 
   parent.add(tower);
@@ -410,9 +416,7 @@ function addUpperGroup(parent) {
 function addPortaLanca(parent) {
   "use strict";
 
-  const portaLanca = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0x00ff00,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -421,9 +425,9 @@ function addPortaLanca(parent) {
     PORTA_LANCA_HEIGHT,
     PORTA_LANCA_WIDTH
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  portaLanca.add(mesh);
+  const portaLanca = new THREE.Mesh(geometry, material);
+
   portaLanca.position.set(0, PORTA_LANCA_HEIGHT / 2 - LANCA_Y_BASELINE, 0);
 
   parent.add(portaLanca);
@@ -432,9 +436,7 @@ function addPortaLanca(parent) {
 function addCabin(parent) {
   "use strict";
 
-  const cabin = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0xebba34,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -443,9 +445,9 @@ function addCabin(parent) {
     CABIN_HEIGHT,
     CABIN_DEPTH
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  cabin.add(mesh);
+  const cabin = new THREE.Mesh(geometry, material);
+
   cabin.position.set(
     (TOWER_WIDTH - PORTA_LANCA_WIDTH) / 2,
     CABIN_Y_BASELINE - CABIN_HEIGHT / 2,
@@ -458,9 +460,7 @@ function addCabin(parent) {
 function addLanca(parent) {
   "use strict";
 
-  const lanca = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0xff0000,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -469,9 +469,9 @@ function addLanca(parent) {
     LANCA_HEIGHT,
     LANCA_DEPTH
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  lanca.add(mesh);
+  const lanca = new THREE.Mesh(geometry, material);
+
   lanca.position.set(
     PORTA_LANCA_WIDTH / 2 + LANCA_LENGTH / 2,
     LANCA_HEIGHT / 2,
@@ -503,16 +503,14 @@ function addCartGroup(parent) {
 function addCart(parent) {
   "use strict";
 
-  const cart = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0x0000ff,
     wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(CART_LENGTH, CART_HEIGHT, CART_DEPTH);
-  const mesh = new THREE.Mesh(geometry, material);
 
-  cart.add(mesh);
+  const cart = new THREE.Mesh(geometry, material);
+
   cart.position.set(0, 0, 0);
 
   parent.add(cart);
@@ -521,9 +519,7 @@ function addCart(parent) {
 function addContraLanca(parent) {
   "use strict";
 
-  const contraLanca = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0xbd36c7,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -532,9 +528,9 @@ function addContraLanca(parent) {
     CONTRA_LANCA_HEIGHT,
     CONTRA_LANCA_DEPTH
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  contraLanca.add(mesh);
+  const contraLanca = new THREE.Mesh(geometry, material);
+
   contraLanca.position.set(
     -PORTA_LANCA_WIDTH / 2 - CONTRA_LANCA_LENGTH / 2,
     CONTRA_LANCA_HEIGHT / 2,
@@ -547,28 +543,28 @@ function addContraLanca(parent) {
 function addClawCables(parent) {
   "use strict";
 
-  const cable = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0x00ff00,
     wireframe: DEFAULT_WIREFRAME,
   });
-
   const geometry = new THREE.CylinderGeometry(
     CABLE_RADIUS,
     CABLE_RADIUS,
     CABLE_LENGTH,
-    64,
-    64
+    16,
+    16
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  cable.add(mesh);
+  const cable = new THREE.Mesh(geometry, material);
+
   cable.position.set(0, -CABLE_LENGTH / 2 - CART_HEIGHT / 2, 0);
 
   cable.userData.length = geometry.parameters.height;
 
   const cable2 = cable.clone();
+  cable2.material = material.clone();
+  materials.push(cable2.material);
+
   cable2.position.setX(((-4 / 5) * CART_LENGTH) / 2 + CABLE_RADIUS);
   cable.position.setX(((4 / 5) * CART_LENGTH) / 2 - CABLE_RADIUS);
 
@@ -597,9 +593,7 @@ function addClawGroup(parent) {
 function addClawBase(parent) {
   "use strict";
 
-  const clawBase = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0xbd36c7,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -608,9 +602,9 @@ function addClawBase(parent) {
     CLAW_BASE_HEIGHT,
     CLAW_BASE_WIDTH
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  clawBase.add(mesh);
+  const clawBase = new THREE.Mesh(geometry, material);
+
   clawBase.position.set(0, 0, 0);
 
   parent.add(clawBase);
@@ -619,33 +613,36 @@ function addClawBase(parent) {
 function addClawArms(parent) {
   "use strict";
 
-  const clawArm = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0xff0000,
     wireframe: DEFAULT_WIREFRAME,
     side: THREE.DoubleSide,
   });
-
   const geometry = new THREE.CylinderGeometry(
     CLAW_ARM_RADIUS,
     CLAW_ARM_RADIUS,
     CLAW_ARM_WIDTH,
-    64,
+    16,
     1,
     true,
     0,
     Math.PI / 3
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  clawArm.add(mesh);
+  const clawArm = new THREE.Mesh(geometry, material);
+
   clawArm.position.set(0, -CLAW_ARM_RADIUS, 0);
   clawArm.rotation.x = -Math.PI / 2; // Place the claw arm vertically
 
   const clawArm2 = clawArm.clone();
+  clawArm2.material = material.clone();
+  materials.push(clawArm2.material);
   const clawArm3 = clawArm.clone();
+  clawArm3.material = material.clone();
+  materials.push(clawArm3.material);
   const clawArm4 = clawArm.clone();
+  clawArm4.material = material.clone();
+  materials.push(clawArm4.material);
 
   // Rotate each arm to the correct orientation
   clawArm2.rotation.z = -Math.PI / 2;
@@ -690,9 +687,7 @@ function addClawArms(parent) {
 function addContraPeso(parent) {
   "use strict";
 
-  const contraPeso = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0xbbbbbb,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -701,9 +696,9 @@ function addContraPeso(parent) {
     CONTRA_PESO_HEIGHT,
     CONTRA_PESO_DEPTH
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  contraPeso.add(mesh);
+  const contraPeso = new THREE.Mesh(geometry, material);
+
   contraPeso.position.set(
     -CONTRA_PESO_X_DISTANCE,
     CONTRA_LANCA_HEIGHT / 2 + CONTRA_PESO_Y_BASELINE,
@@ -716,23 +711,20 @@ function addContraPeso(parent) {
 function addTirantesFrente(parent) {
   "use strict";
 
-  const tiranteFrente = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0x0000ff,
     wireframe: DEFAULT_WIREFRAME,
   });
-
   const geometry = new THREE.CylinderGeometry(
     TIRANTE_RADIUS,
     TIRANTE_RADIUS,
     TIRANTE_FRENTE_LENGTH,
-    64,
-    64
+    16,
+    16
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  tiranteFrente.add(mesh);
+  const tiranteFrente = new THREE.Mesh(geometry, material);
+
   tiranteFrente.position.set(
     TIRANTE_FRENTE_LENGTH / 2,
     TIRANTE_FRENTE_HEIGHT / 2 + LANCA_HEIGHT - TIRANTE_RADIUS,
@@ -741,6 +733,9 @@ function addTirantesFrente(parent) {
   tiranteFrente.rotation.z = TIRANTE_FRENTE_Z_ANGLE;
 
   const tiranteFrente2 = tiranteFrente.clone();
+  tiranteFrente2.material = material.clone();
+  materials.push(tiranteFrente2.material);
+
   tiranteFrente2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS + 0.01);
   tiranteFrente.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS - 0.01);
 
@@ -751,9 +746,7 @@ function addTirantesFrente(parent) {
 function addTirantesTras(parent) {
   "use strict";
 
-  const tiranteTras = new THREE.Object3D();
-
-  const material = new THREE.MeshBasicMaterial({
+  const material = createMeshBasicMaterial({
     color: 0x0000ff,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -762,12 +755,12 @@ function addTirantesTras(parent) {
     TIRANTE_RADIUS,
     TIRANTE_RADIUS,
     TIRANTE_TRAS_LENGTH,
-    64,
-    64
+    16,
+    16
   );
-  const mesh = new THREE.Mesh(geometry, material);
 
-  tiranteTras.add(mesh);
+  const tiranteTras = new THREE.Mesh(geometry, material);
+
   tiranteTras.position.set(
     -TIRANTE_TRAS_LENGTH / 2 + PORTA_LANCA_WIDTH / 2,
     TIRANTE_TRAS_HEIGHT / 2 + CONTRA_LANCA_HEIGHT - TIRANTE_RADIUS,
@@ -776,6 +769,9 @@ function addTirantesTras(parent) {
   tiranteTras.rotation.z = TIRANTE_TRAS_Z_ANGLE;
 
   const tiranteTras2 = tiranteTras.clone();
+  tiranteTras2.material = material.clone();
+  materials.push(tiranteTras2.material);
+
   tiranteTras2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS + 0.01);
   tiranteTras.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS - 0.01);
 
@@ -789,16 +785,16 @@ function addContainer(parent) {
   container = new THREE.Object3D();
   container.position.set(CART_RANGE_MIN + CONTAINER_BASE_LENGTH / 2, 0, 0);
 
-  const baseMaterial = new THREE.MeshBasicMaterial({
+  const baseMaterial = createMeshBasicMaterial({
     color: 0x546966,
     wireframe: DEFAULT_WIREFRAME,
   });
-
   const baseGeometry = new THREE.BoxGeometry(
     CONTAINER_BASE_LENGTH,
     CONTAINER_ELEMENTS_THICKNESS,
     CONTAINER_BASE_DEPTH
   );
+
   const base = new THREE.Mesh(baseGeometry, baseMaterial);
 
   base.position.set(0, CONTAINER_ELEMENTS_THICKNESS / 2, 0);
@@ -809,7 +805,7 @@ function addContainer(parent) {
     CONTAINER_WALL_HEIGHT,
     CONTAINER_ELEMENTS_THICKNESS
   );
-  const wallMaterial = new THREE.MeshBasicMaterial({
+  const wallMaterial = createMeshBasicMaterial({
     color: 0x166960,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -822,6 +818,9 @@ function addContainer(parent) {
   );
 
   const wall2 = wall1.clone();
+  wall2.material = wallMaterial.clone();
+  materials.push(wall2.material);
+
   wall1.position.setZ(
     -CONTAINER_BASE_DEPTH / 2 + CONTAINER_ELEMENTS_THICKNESS / 2
   );
@@ -833,12 +832,13 @@ function addContainer(parent) {
   base.add(wall2);
 
   // Create the short side walls
-  const wallGeometry2 = new THREE.BoxGeometry(
+  const shortWallGeometry = new THREE.BoxGeometry(
     CONTAINER_ELEMENTS_THICKNESS,
     CONTAINER_WALL_HEIGHT,
     CONTAINER_BASE_DEPTH
   );
-  const wall3 = new THREE.Mesh(wallGeometry2, wallMaterial);
+  const wall3 = new THREE.Mesh(shortWallGeometry, wallMaterial.clone());
+  materials.push(wall3.material);
   wall3.position.set(
     0,
     CONTAINER_ELEMENTS_THICKNESS / 2 + CONTAINER_WALL_HEIGHT / 2,
@@ -846,6 +846,9 @@ function addContainer(parent) {
   );
 
   const wall4 = wall3.clone();
+  wall4.material = wallMaterial.clone();
+  materials.push(wall4.material);
+
   wall3.position.setX(
     -CONTAINER_BASE_LENGTH / 2 + CONTAINER_ELEMENTS_THICKNESS / 2
   );
@@ -864,43 +867,50 @@ function addContainer(parent) {
 }
 
 function addLoads(parent) {
+  const choices = [];
+
   let geometry = new THREE.BoxGeometry(
     LOAD_CUBE_SIZE,
     LOAD_CUBE_SIZE,
     LOAD_CUBE_SIZE
   );
-  let material = new THREE.MeshBasicMaterial({ color: 0x461787 });
-  const cube = new THREE.Mesh(geometry, material);
-  generateLoadPosition(cube);
+  let material = createMeshBasicMaterial({ color: 0x461787 });
+  choices.push({ geometry, material });
 
   geometry = new THREE.DodecahedronGeometry(LOAD_RADIUS);
-  material = new THREE.MeshBasicMaterial({ color: 0x461787 });
-  const dodecahedron = new THREE.Mesh(geometry, material);
-  generateLoadPosition(dodecahedron);
+  material = createMeshBasicMaterial({ color: 0x461787 });
+  choices.push({ geometry, material });
 
   geometry = new THREE.IcosahedronGeometry(LOAD_RADIUS - 0.2);
-  material = new THREE.MeshBasicMaterial({ color: 0x461787 });
-  const icosahedron = new THREE.Mesh(geometry, material);
-  generateLoadPosition(icosahedron);
+  material = createMeshBasicMaterial({ color: 0x461787 });
+  choices.push({ geometry, material });
 
   geometry = new THREE.TorusGeometry(LOAD_RADIUS - 0.5, LOAD_TUBE_RADIUS);
-  material = new THREE.MeshBasicMaterial({ color: 0x461787 });
-  const torus = new THREE.Mesh(geometry, material);
-  generateLoadPosition(torus);
+  material = createMeshBasicMaterial({ color: 0x461787 });
+  choices.push({ geometry, material });
 
   geometry = new THREE.TorusKnotGeometry(
     LOAD_RADIUS - 0.7,
     LOAD_TUBE_RADIUS - 0.05
   );
-  material = new THREE.MeshBasicMaterial({ color: 0x461787 });
-  const torusKnot = new THREE.Mesh(geometry, material);
-  generateLoadPosition(torusKnot);
+  material = createMeshBasicMaterial({ color: 0x461787 });
+  choices.push({ geometry, material });
 
-  parent.add(cube);
-  parent.add(dodecahedron);
-  parent.add(icosahedron);
-  parent.add(torus);
-  parent.add(torusKnot);
+  // Randomly generate a number of loads
+  const loadCount =
+    LOAD_MIN_COUNT +
+    Math.round(Math.random() * (LOAD_MAX_COUNT - LOAD_MIN_COUNT));
+
+  for (let i = 0; i < loadCount; i++) {
+    const choice = choices[i % choices.length];
+    const load = new THREE.Mesh(
+      choice.geometry.clone(),
+      choice.material.clone()
+    );
+    materials.push(load.material);
+    generateLoadPosition(load);
+    parent.add(load);
+  }
 }
 
 function generateLoadPosition(loadObject) {
@@ -955,7 +965,7 @@ function checkCollisions() {
 
   const clawPos = new THREE.Vector3();
   clawGroup.getWorldPosition(clawPos);
-  collisionSphere = new THREE.Sphere(
+  clawCollisionSphere = new THREE.Sphere(
     new THREE.Vector3(clawPos.x, clawPos.y + CLAW_BASE_HEIGHT / 2, clawPos.z),
     CLAW_COLLISION_SPHERE_RADIUS
   );
@@ -963,7 +973,7 @@ function checkCollisions() {
   for (const loadObject of loadObjects) {
     if (
       checkSphereIntersections(
-        collisionSphere,
+        clawCollisionSphere,
         loadObject.userData.collisionSphere
       )
     ) {
@@ -1351,11 +1361,9 @@ function adjustClawArmRotation(rotationSpeed) {
 }
 
 function toggleWireframe() {
-  scene.traverse(function (child) {
-    if (child instanceof THREE.Mesh) {
-      child.material.wireframe = !child.material.wireframe;
-    }
-  });
+  for (const material of materials) {
+    material.wireframe = !material.wireframe;
+  }
 }
 
 function update() {
