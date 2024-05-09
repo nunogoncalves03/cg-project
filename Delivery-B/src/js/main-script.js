@@ -7,6 +7,8 @@ import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 //////////////////////
 /* GLOBAL VARIABLES */
 //////////////////////
+
+// Object dimensions
 const BASE_HEIGHT = 3,
   BASE_LENGTH = 7.2,
   BASE_DEPTH = 4.4;
@@ -14,24 +16,24 @@ const BASE_HEIGHT = 3,
 const TOWER_HEIGHT = 54.75,
   TOWER_WIDTH = 2.4;
 
-const PORTA_LANCA_HEIGHT = 11.4,
-  PORTA_LANCA_WIDTH = 1.8;
+const TOWER_PEAK_HEIGHT = 11.4,
+  TOWER_PEAK_WIDTH = 1.8;
 
 const CABIN_LENGTH = 2.4,
   CABIN_HEIGHT = 2.4,
   CABIN_DEPTH = 1.8;
 const CABIN_Y_BASELINE = -0.3;
 
-const LANCA_Y_BASELINE = 3.9;
-const LANCA_LENGTH = 63,
-  LANCA_DEPTH = PORTA_LANCA_WIDTH,
-  LANCA_HEIGHT = 1.8;
+const JIB_Y_BASELINE = 3.9;
+const JIB_LENGTH = 63,
+  JIB_DEPTH = TOWER_PEAK_WIDTH,
+  JIB_HEIGHT = 1.8;
 
 const CART_LENGTH = 2,
   CART_HEIGHT = 0.9,
   CART_DEPTH = 1.8;
 const CART_RANGE_MIN = CABIN_LENGTH + CART_LENGTH + 5,
-  CART_RANGE_MAX = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 - CART_LENGTH / 2;
+  CART_RANGE_MAX = JIB_LENGTH + TOWER_PEAK_WIDTH / 2 - CART_LENGTH / 2;
 
 const CABLE_RADIUS = 0.1,
   CABLE_LENGTH = 24;
@@ -45,41 +47,41 @@ const CLAW_ANGLE_RANGE_MIN = 0,
   CLAW_ANGLE_RANGE_MAX = (3 * Math.PI) / 8;
 const CLAW_COLLISION_SPHERE_RADIUS = 4;
 
-const CONTRA_LANCA_LENGTH = 12,
-  CONTRA_LANCA_DEPTH = PORTA_LANCA_WIDTH,
-  CONTRA_LANCA_HEIGHT = 0.6;
-const CONTRA_PESO_LENGTH = 3,
-  CONTRA_PESO_HEIGHT = 3.3,
-  CONTRA_PESO_DEPTH = 1.2;
-const CONTRA_PESO_Y_BASELINE = -0.15,
-  CONTRA_PESO_LEFT_MARGIN = 0.5,
-  CONTRA_PESO_X_DISTANCE =
-    PORTA_LANCA_WIDTH / 2 +
-    CONTRA_LANCA_LENGTH -
-    CONTRA_PESO_LEFT_MARGIN -
-    CONTRA_PESO_LENGTH / 2;
+const COUNTERJIB_LENGTH = 12,
+  COUNTERJIB_DEPTH = TOWER_PEAK_WIDTH,
+  COUNTERJIB_HEIGHT = 0.6;
+const COUNTERWEIGHT_LENGTH = 3,
+  COUNTERWEIGHT_HEIGHT = 3.3,
+  COUNTERWEIGHT_DEPTH = 1.2;
+const COUNTERWEIGHT_Y_BASELINE = -0.15,
+  COUNTERWEIGHT_LEFT_MARGIN = 0.5,
+  COUNTERWEIGHT_X_DISTANCE =
+    TOWER_PEAK_WIDTH / 2 +
+    COUNTERJIB_LENGTH -
+    COUNTERWEIGHT_LEFT_MARGIN -
+    COUNTERWEIGHT_LENGTH / 2;
 
-const TOTAL_CRANE_HEIGHT = BASE_HEIGHT + TOWER_HEIGHT + PORTA_LANCA_HEIGHT;
-const PORTA_LANCA_UPPER_HEIGHT = PORTA_LANCA_HEIGHT - LANCA_Y_BASELINE;
+const TOTAL_CRANE_HEIGHT = BASE_HEIGHT + TOWER_HEIGHT + TOWER_PEAK_HEIGHT;
+const TOWER_PEAK_UPPER_HEIGHT = TOWER_PEAK_HEIGHT - JIB_Y_BASELINE;
 
-const TIRANTE_RADIUS = 0.1;
+const PENDANT_RADIUS = 0.1;
 
-const TIRANTE_FRENTE_X_DISTANCE = PORTA_LANCA_WIDTH / 2 + 30;
-const TIRANTE_FRENTE_HEIGHT = PORTA_LANCA_UPPER_HEIGHT - LANCA_HEIGHT;
-const TIRANTE_FRENTE_LENGTH = Math.sqrt(
-  Math.pow(TIRANTE_FRENTE_X_DISTANCE, 2) + Math.pow(TIRANTE_FRENTE_HEIGHT, 2)
+const FORE_PENDANT_X_DISTANCE = TOWER_PEAK_WIDTH / 2 + 30;
+const FORE_PENDANT_HEIGHT = TOWER_PEAK_UPPER_HEIGHT - JIB_HEIGHT;
+const FORE_PENDANT_LENGTH = Math.sqrt(
+  Math.pow(FORE_PENDANT_X_DISTANCE, 2) + Math.pow(FORE_PENDANT_HEIGHT, 2)
 );
-const TIRANTE_FRENTE_Z_ANGLE = Math.atan(
-  TIRANTE_FRENTE_X_DISTANCE / TIRANTE_FRENTE_HEIGHT
+const FORE_PENDANT_Z_ANGLE = Math.atan(
+  FORE_PENDANT_X_DISTANCE / FORE_PENDANT_HEIGHT
 );
 
-const TIRANTE_TRAS_X_DISTANCE = CONTRA_PESO_X_DISTANCE;
-const TIRANTE_TRAS_HEIGHT = PORTA_LANCA_UPPER_HEIGHT - CONTRA_LANCA_HEIGHT;
-const TIRANTE_TRAS_LENGTH = Math.sqrt(
-  Math.pow(TIRANTE_TRAS_X_DISTANCE, 2) + Math.pow(TIRANTE_TRAS_HEIGHT, 2)
+const REAR_PENDANT_X_DISTANCE = COUNTERWEIGHT_X_DISTANCE;
+const REAR_PENDANT_HEIGHT = TOWER_PEAK_UPPER_HEIGHT - COUNTERJIB_HEIGHT;
+const REAR_PENDANT_LENGTH = Math.sqrt(
+  Math.pow(REAR_PENDANT_X_DISTANCE, 2) + Math.pow(REAR_PENDANT_HEIGHT, 2)
 );
-const TIRANTE_TRAS_Z_ANGLE = -Math.atan(
-  TIRANTE_TRAS_X_DISTANCE / TIRANTE_TRAS_HEIGHT
+const REAR_PENDANT_Z_ANGLE = -Math.atan(
+  REAR_PENDANT_X_DISTANCE / REAR_PENDANT_HEIGHT
 );
 
 const CONTAINER_ELEMENTS_THICKNESS = 0.5;
@@ -101,6 +103,8 @@ const CLAW_RAISE_SPEED = 8;
 const CLAW_ARM_ROTATION_SPEED = CLAW_ANGLE_RANGE_MAX;
 
 const DEFAULT_WIREFRAME = false;
+
+// Variables
 
 var scene, renderer;
 
@@ -221,7 +225,7 @@ function createFrontCamera() {
     0.1,
     1000
   );
-  camera.position.x = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 + 1;
+  camera.position.x = JIB_LENGTH + TOWER_PEAK_WIDTH / 2 + 1;
   camera.position.y = TOTAL_CRANE_HEIGHT / 2;
   camera.position.z = 0;
   camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
@@ -246,7 +250,7 @@ function createSideCamera() {
   );
   camera.position.x = 0;
   camera.position.y = TOTAL_CRANE_HEIGHT / 2;
-  camera.position.z = LANCA_LENGTH + PORTA_LANCA_WIDTH / 2 + 1;
+  camera.position.z = JIB_LENGTH + TOWER_PEAK_WIDTH / 2 + 1;
   camera.lookAt(0, TOTAL_CRANE_HEIGHT / 2, 0);
 
   cameras.push(camera);
@@ -323,8 +327,8 @@ function addFloor(parent) {
     wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(
-    (LANCA_LENGTH + PORTA_LANCA_WIDTH) * 5,
-    (LANCA_LENGTH + PORTA_LANCA_WIDTH) * 5,
+    (JIB_LENGTH + TOWER_PEAK_WIDTH) * 5,
+    (JIB_LENGTH + TOWER_PEAK_WIDTH) * 5,
     10,
     3,
     3
@@ -390,21 +394,21 @@ function addUpperGroup(parent) {
   upperGroup = new THREE.Object3D();
   upperGroup.position.set(
     0,
-    BASE_HEIGHT / 2 + TOWER_HEIGHT + LANCA_Y_BASELINE,
+    BASE_HEIGHT / 2 + TOWER_HEIGHT + JIB_Y_BASELINE,
     0
   );
 
-  addPortaLanca(upperGroup);
+  addTowerPeak(upperGroup);
 
-  addLanca(upperGroup);
+  addJib(upperGroup);
 
-  addContraLanca(upperGroup);
+  addCounterjib(upperGroup);
 
-  addContraPeso(upperGroup);
+  addCounterweight(upperGroup);
 
-  addTirantesFrente(upperGroup);
+  addForePendants(upperGroup);
 
-  addTirantesTras(upperGroup);
+  addRearPendants(upperGroup);
 
   addCabin(upperGroup);
 
@@ -413,7 +417,7 @@ function addUpperGroup(parent) {
   parent.add(upperGroup);
 }
 
-function addPortaLanca(parent) {
+function addTowerPeak(parent) {
   "use strict";
 
   const material = createMeshBasicMaterial({
@@ -421,16 +425,151 @@ function addPortaLanca(parent) {
     wireframe: DEFAULT_WIREFRAME,
   });
   const geometry = new THREE.BoxGeometry(
-    PORTA_LANCA_WIDTH,
-    PORTA_LANCA_HEIGHT,
-    PORTA_LANCA_WIDTH
+    TOWER_PEAK_WIDTH,
+    TOWER_PEAK_HEIGHT,
+    TOWER_PEAK_WIDTH
   );
 
-  const portaLanca = new THREE.Mesh(geometry, material);
+  const towerPeak = new THREE.Mesh(geometry, material);
 
-  portaLanca.position.set(0, PORTA_LANCA_HEIGHT / 2 - LANCA_Y_BASELINE, 0);
+  towerPeak.position.set(0, TOWER_PEAK_HEIGHT / 2 - JIB_Y_BASELINE, 0);
 
-  parent.add(portaLanca);
+  parent.add(towerPeak);
+}
+
+function addJib(parent) {
+  "use strict";
+
+  const material = createMeshBasicMaterial({
+    color: 0xff0000,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+  const geometry = new THREE.BoxGeometry(JIB_LENGTH, JIB_HEIGHT, JIB_DEPTH);
+
+  const jib = new THREE.Mesh(geometry, material);
+
+  jib.position.set(TOWER_PEAK_WIDTH / 2 + JIB_LENGTH / 2, JIB_HEIGHT / 2, 0);
+
+  parent.add(jib);
+}
+
+function addCounterjib(parent) {
+  "use strict";
+
+  const material = createMeshBasicMaterial({
+    color: 0xbd36c7,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+  const geometry = new THREE.BoxGeometry(
+    COUNTERJIB_LENGTH,
+    COUNTERJIB_HEIGHT,
+    COUNTERJIB_DEPTH
+  );
+
+  const counterjib = new THREE.Mesh(geometry, material);
+
+  counterjib.position.set(
+    -TOWER_PEAK_WIDTH / 2 - COUNTERJIB_LENGTH / 2,
+    COUNTERJIB_HEIGHT / 2,
+    0
+  );
+
+  parent.add(counterjib);
+}
+
+function addCounterweight(parent) {
+  "use strict";
+
+  const material = createMeshBasicMaterial({
+    color: 0xbbbbbb,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+  const geometry = new THREE.BoxGeometry(
+    COUNTERWEIGHT_LENGTH,
+    COUNTERWEIGHT_HEIGHT,
+    COUNTERWEIGHT_DEPTH
+  );
+
+  const counterweight = new THREE.Mesh(geometry, material);
+
+  counterweight.position.set(
+    -COUNTERWEIGHT_X_DISTANCE,
+    COUNTERJIB_HEIGHT / 2 + COUNTERWEIGHT_Y_BASELINE,
+    0
+  );
+
+  parent.add(counterweight);
+}
+
+function addForePendants(parent) {
+  "use strict";
+
+  const material = createMeshBasicMaterial({
+    color: 0x0000ff,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+  const geometry = new THREE.CylinderGeometry(
+    PENDANT_RADIUS,
+    PENDANT_RADIUS,
+    FORE_PENDANT_LENGTH,
+    16,
+    16
+  );
+
+  const forePendant = new THREE.Mesh(geometry, material);
+
+  forePendant.position.set(
+    FORE_PENDANT_LENGTH / 2,
+    FORE_PENDANT_HEIGHT / 2 + JIB_HEIGHT - PENDANT_RADIUS,
+    0
+  );
+  forePendant.rotation.z = FORE_PENDANT_Z_ANGLE;
+
+  const forePendant2 = forePendant.clone();
+  forePendant2.material = material.clone();
+  materials.push(forePendant2.material);
+
+  forePendant2.position.setZ(-TOWER_PEAK_WIDTH / 2 + PENDANT_RADIUS + 0.01);
+  forePendant.position.setZ(TOWER_PEAK_WIDTH / 2 - PENDANT_RADIUS - 0.01);
+
+  parent.add(forePendant);
+  parent.add(forePendant2);
+}
+
+function addRearPendants(parent) {
+  "use strict";
+
+  const material = createMeshBasicMaterial({
+    color: 0x0000ff,
+    wireframe: DEFAULT_WIREFRAME,
+  });
+
+  const geometry = new THREE.CylinderGeometry(
+    PENDANT_RADIUS,
+    PENDANT_RADIUS,
+    REAR_PENDANT_LENGTH,
+    16,
+    16
+  );
+
+  const rearPendant = new THREE.Mesh(geometry, material);
+
+  rearPendant.position.set(
+    -REAR_PENDANT_LENGTH / 2 + TOWER_PEAK_WIDTH / 2,
+    REAR_PENDANT_HEIGHT / 2 + COUNTERJIB_HEIGHT - PENDANT_RADIUS,
+    0
+  );
+  rearPendant.rotation.z = REAR_PENDANT_Z_ANGLE;
+
+  const rearPendant2 = rearPendant.clone();
+  rearPendant2.material = material.clone();
+  materials.push(rearPendant2.material);
+
+  rearPendant2.position.setZ(-TOWER_PEAK_WIDTH / 2 + PENDANT_RADIUS + 0.01);
+  rearPendant.position.setZ(TOWER_PEAK_WIDTH / 2 - PENDANT_RADIUS - 0.01);
+
+  parent.add(rearPendant);
+  parent.add(rearPendant2);
 }
 
 function addCabin(parent) {
@@ -449,36 +588,12 @@ function addCabin(parent) {
   const cabin = new THREE.Mesh(geometry, material);
 
   cabin.position.set(
-    (TOWER_WIDTH - PORTA_LANCA_WIDTH) / 2,
+    (TOWER_WIDTH - TOWER_PEAK_WIDTH) / 2,
     CABIN_Y_BASELINE - CABIN_HEIGHT / 2,
-    PORTA_LANCA_WIDTH
+    TOWER_PEAK_WIDTH
   );
 
   parent.add(cabin);
-}
-
-function addLanca(parent) {
-  "use strict";
-
-  const material = createMeshBasicMaterial({
-    color: 0xff0000,
-    wireframe: DEFAULT_WIREFRAME,
-  });
-  const geometry = new THREE.BoxGeometry(
-    LANCA_LENGTH,
-    LANCA_HEIGHT,
-    LANCA_DEPTH
-  );
-
-  const lanca = new THREE.Mesh(geometry, material);
-
-  lanca.position.set(
-    PORTA_LANCA_WIDTH / 2 + LANCA_LENGTH / 2,
-    LANCA_HEIGHT / 2,
-    0
-  );
-
-  parent.add(lanca);
 }
 
 function addCartGroup(parent) {
@@ -514,30 +629,6 @@ function addCart(parent) {
   cart.position.set(0, 0, 0);
 
   parent.add(cart);
-}
-
-function addContraLanca(parent) {
-  "use strict";
-
-  const material = createMeshBasicMaterial({
-    color: 0xbd36c7,
-    wireframe: DEFAULT_WIREFRAME,
-  });
-  const geometry = new THREE.BoxGeometry(
-    CONTRA_LANCA_LENGTH,
-    CONTRA_LANCA_HEIGHT,
-    CONTRA_LANCA_DEPTH
-  );
-
-  const contraLanca = new THREE.Mesh(geometry, material);
-
-  contraLanca.position.set(
-    -PORTA_LANCA_WIDTH / 2 - CONTRA_LANCA_LENGTH / 2,
-    CONTRA_LANCA_HEIGHT / 2,
-    0
-  );
-
-  parent.add(contraLanca);
 }
 
 function addClawCables(parent) {
@@ -682,101 +773,6 @@ function addClawArms(parent) {
   parent.add(rotAxis2);
   parent.add(rotAxis3);
   parent.add(rotAxis4);
-}
-
-function addContraPeso(parent) {
-  "use strict";
-
-  const material = createMeshBasicMaterial({
-    color: 0xbbbbbb,
-    wireframe: DEFAULT_WIREFRAME,
-  });
-  const geometry = new THREE.BoxGeometry(
-    CONTRA_PESO_LENGTH,
-    CONTRA_PESO_HEIGHT,
-    CONTRA_PESO_DEPTH
-  );
-
-  const contraPeso = new THREE.Mesh(geometry, material);
-
-  contraPeso.position.set(
-    -CONTRA_PESO_X_DISTANCE,
-    CONTRA_LANCA_HEIGHT / 2 + CONTRA_PESO_Y_BASELINE,
-    0
-  );
-
-  parent.add(contraPeso);
-}
-
-function addTirantesFrente(parent) {
-  "use strict";
-
-  const material = createMeshBasicMaterial({
-    color: 0x0000ff,
-    wireframe: DEFAULT_WIREFRAME,
-  });
-  const geometry = new THREE.CylinderGeometry(
-    TIRANTE_RADIUS,
-    TIRANTE_RADIUS,
-    TIRANTE_FRENTE_LENGTH,
-    16,
-    16
-  );
-
-  const tiranteFrente = new THREE.Mesh(geometry, material);
-
-  tiranteFrente.position.set(
-    TIRANTE_FRENTE_LENGTH / 2,
-    TIRANTE_FRENTE_HEIGHT / 2 + LANCA_HEIGHT - TIRANTE_RADIUS,
-    0
-  );
-  tiranteFrente.rotation.z = TIRANTE_FRENTE_Z_ANGLE;
-
-  const tiranteFrente2 = tiranteFrente.clone();
-  tiranteFrente2.material = material.clone();
-  materials.push(tiranteFrente2.material);
-
-  tiranteFrente2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS + 0.01);
-  tiranteFrente.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS - 0.01);
-
-  parent.add(tiranteFrente);
-  parent.add(tiranteFrente2);
-}
-
-function addTirantesTras(parent) {
-  "use strict";
-
-  const material = createMeshBasicMaterial({
-    color: 0x0000ff,
-    wireframe: DEFAULT_WIREFRAME,
-  });
-
-  const geometry = new THREE.CylinderGeometry(
-    TIRANTE_RADIUS,
-    TIRANTE_RADIUS,
-    TIRANTE_TRAS_LENGTH,
-    16,
-    16
-  );
-
-  const tiranteTras = new THREE.Mesh(geometry, material);
-
-  tiranteTras.position.set(
-    -TIRANTE_TRAS_LENGTH / 2 + PORTA_LANCA_WIDTH / 2,
-    TIRANTE_TRAS_HEIGHT / 2 + CONTRA_LANCA_HEIGHT - TIRANTE_RADIUS,
-    0
-  );
-  tiranteTras.rotation.z = TIRANTE_TRAS_Z_ANGLE;
-
-  const tiranteTras2 = tiranteTras.clone();
-  tiranteTras2.material = material.clone();
-  materials.push(tiranteTras2.material);
-
-  tiranteTras2.position.setZ(-PORTA_LANCA_WIDTH / 2 + TIRANTE_RADIUS + 0.01);
-  tiranteTras.position.setZ(PORTA_LANCA_WIDTH / 2 - TIRANTE_RADIUS - 0.01);
-
-  parent.add(tiranteTras);
-  parent.add(tiranteTras2);
 }
 
 function addContainer(parent) {
@@ -1310,7 +1306,7 @@ function moveClaw(movementSpeed, targetY = null) {
   if (
     currentLength - delta <= 4 * CLAW_BASE_HEIGHT ||
     currentLength - delta >
-      LANCA_Y_BASELINE -
+      JIB_Y_BASELINE -
         CART_HEIGHT +
         TOWER_HEIGHT +
         BASE_HEIGHT / 2 -
