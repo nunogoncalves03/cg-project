@@ -83,7 +83,7 @@ const TIRANTE_TRAS_Z_ANGLE = -Math.atan(
 );
 
 const CONTAINER_ELEMENTS_THICKNESS = 0.5;
-const CONTAINER_BASE_LENGTH = 27;
+const CONTAINER_BASE_LENGTH = 20;
 const CONTAINER_BASE_DEPTH = 10;
 const CONTAINER_WALL_HEIGHT = 6;
 
@@ -117,8 +117,7 @@ var cameraKeysMap = new Map();
 const clock = new THREE.Clock();
 var deltaTime;
 
-var heldObject = null,
-  lastPlacedObject = null;
+var heldObject = null;
 
 /**
  * empty
@@ -1062,17 +1061,9 @@ function rotateLoad() {
 function alignLoad() {
   "use strict";
 
-  const GAP = 1.5;
-
-  let targetX = GAP + heldObject.userData.xSpan / 2;
-
-  if (lastPlacedObject !== null) {
-    const lastPos = new THREE.Vector3();
-    lastPlacedObject.getWorldPosition(lastPos);
-    targetX += lastPos.x + lastPlacedObject.userData.xSpan / 2;
-  } else {
-    targetX += CART_RANGE_MIN + CONTAINER_ELEMENTS_THICKNESS;
-  }
+  const containerPos = new THREE.Vector3();
+  container.getWorldPosition(containerPos);
+  let targetX = containerPos.x;
 
   const movementSpeed =
     cartGroup.position.x < targetX ? CART_MOVEMENT_SPEED : -CART_MOVEMENT_SPEED;
@@ -1242,7 +1233,7 @@ function handleCollisions() {
     const done = raiseLoad();
     if (done) {
       clawState = "empty";
-      lastPlacedObject = heldObject;
+      scene.remove(heldObject);
       heldObject = null;
     }
     return;
