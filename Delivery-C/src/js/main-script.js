@@ -20,6 +20,8 @@ const RING_CENTER_OFFSET = [
 
 const DEFAULT_WIREFRAME = false;
 
+const RINGS_MOVEMENT_SPEED = 3;
+
 // Variables
 
 var scene, renderer;
@@ -28,6 +30,8 @@ var camera;
 
 var centralCylinder;
 var rings = [];
+var movementActive = [false, false, false];
+var movementSpeeds = [RINGS_MOVEMENT_SPEED, RINGS_MOVEMENT_SPEED, RINGS_MOVEMENT_SPEED];
 
 var keysMap = new Map();
 
@@ -53,13 +57,13 @@ function createScene() {
 function createPerspectiveCamera() {
   "use strict";
   camera = new THREE.PerspectiveCamera(
-    70,
+    80,
     window.innerWidth / window.innerHeight,
     0.1,
     1000
   );
   camera.position.x = 0;
-  camera.position.y = 0;
+  camera.position.y = 2;
   camera.position.z = 5;
   camera.lookAt(0, 0, 0);
 }
@@ -188,11 +192,35 @@ function checkCollisions() {
 ////////////
 /* UPDATE */
 ////////////
+function moveRing(ringIndex) {
+  const movementSpeed = movementSpeeds[ringIndex];
+  const ring = rings[ringIndex];
+  let delta = movementSpeed * deltaTime;
+
+  if (movementSpeed > 0 && ring.position.y + delta > CENTRAL_CYLINDER_HEIGHT) {
+    delta = CENTRAL_CYLINDER_HEIGHT - ring.position.y;
+    movementSpeeds[ringIndex] *= -1;
+  }
+
+  if (movementSpeed < 0 && ring.position.y + delta < RING_HEIGHT) {
+    delta = RING_HEIGHT - ring.position.y;
+    movementSpeeds[ringIndex] *= -1;
+  }
+
+  ring.position.y += delta;
+}
+
 function update() {
   "use strict";
 
   for (const callback of keysMap.values()) {
     callback();
+  }
+
+  for (let i = 0; i < 3; i++) {
+    if (movementActive[i]) {
+      moveRing(i);
+    }
   }
 }
 
@@ -217,8 +245,6 @@ function init() {
 
   createScene();
   createPerspectiveCamera();
-
-  render();
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
@@ -259,9 +285,12 @@ function onKeyDown(e) {
     case "1":
     case "2":
     case "3":
-      // TODO: toggle rings movement
-      callback = () => {};
-      keysMap.set(key, callback);
+      callback = () => {
+        const ringIndex = Number(key) - 1;
+        movementActive[ringIndex] = !movementActive[ringIndex];
+        keysMap.delete(key);
+      };
+      keysMap.set(key, callback); // FIXME: is this needed?
       break;
     case "d":
       callback = () => {};
