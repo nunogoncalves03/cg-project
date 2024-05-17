@@ -57,6 +57,8 @@ function createScene() {
 
   addCarousel(scene);
   addSkydome(scene);
+  createAmbientLight(scene);
+  createDirectionalLight(scene);
 }
 
 //////////////////////
@@ -80,6 +82,18 @@ function createPerspectiveCamera() {
 /* CREATE LIGHT(S) */
 /////////////////////
 
+function createAmbientLight(scene) {
+  const light = new THREE.AmbientLight(0xffa257, 0.5);
+  scene.add(light);
+}
+
+function createDirectionalLight(scene) {
+  const directionalLight = new THREE.DirectionalLight(0xffffff);
+  directionalLight.position.set(0, centralCylinder.position.y, 5);
+  directionalLight.target = centralCylinder;
+  scene.add(directionalLight);
+}
+
 ////////////////////////
 /* CREATE OBJECT3D(S) */
 ////////////////////////
@@ -93,7 +107,7 @@ function addCarousel(parent) {
 function addCentralCylinder(parent) {
   "use strict";
 
-  const material = new THREE.MeshBasicMaterial({
+  const material = new THREE.MeshPhongMaterial({
     color: 0x0000ff,
     wireframe: DEFAULT_WIREFRAME,
   });
@@ -139,7 +153,7 @@ function addRing(parent, ringIndex) {
 
   // Create geometry by extruding the ring shape
   const geometry = new THREE.ExtrudeGeometry(ringShape, extrudeSettings);
-  const material = new THREE.MeshBasicMaterial({
+  const material = new THREE.MeshPhongMaterial({
     color: ringIndex % 2 == 0 ? 0xff0000 : 0x0000ff,
   });
 
@@ -167,7 +181,7 @@ function addPieces(parent, ringIndex) {
   const offset = Math.PI / 8;
   const radius = RING_CENTER_OFFSET[ringIndex] + RING_RADIUS / 2;
 
-  const material = new THREE.MeshBasicMaterial({
+  const material = new THREE.MeshPhongMaterial({
     color: 0x2277ff,
     wireframe: DEFAULT_WIREFRAME,
     side: THREE.DoubleSide,
