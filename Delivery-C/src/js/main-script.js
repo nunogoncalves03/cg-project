@@ -3,6 +3,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { VRButton } from "three/addons/webxr/VRButton.js";
 import * as Stats from "three/addons/libs/stats.module.js";
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+import { ParametricGeometries } from "three/addons/geometries/ParametricGeometries.js";
+import { ParametricGeometry } from "three/addons/geometries/ParametricGeometry.js";
 
 //////////////////////
 /* GLOBAL VARIABLES */
@@ -10,17 +12,19 @@ import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 const CENTRAL_CYLINDER_RADIUS = 0.15,
   CENTRAL_CYLINDER_HEIGHT = 3.5;
 
-const RING_RADIUS = 0.7,
-  RING_HEIGHT = 0.35;
+const RING_RADIUS = 0.9,
+  RING_HEIGHT = 0.2;
 const RING_CENTER_OFFSET = [
   CENTRAL_CYLINDER_RADIUS,
   CENTRAL_CYLINDER_RADIUS + RING_RADIUS,
   CENTRAL_CYLINDER_RADIUS + 2 * RING_RADIUS,
 ];
+const RING_PIECE_SIZE = [RING_RADIUS * 0.4, RING_RADIUS * 0.7, RING_RADIUS * 1];
+const RING_PIECES_COUNT = 8;
 
 const DEFAULT_WIREFRAME = false;
 
-const RINGS_MOVEMENT_SPEED = 3;
+const RINGS_MOVEMENT_SPEED = 2;
 
 // Variables
 
@@ -31,7 +35,11 @@ var camera;
 var centralCylinder;
 var rings = [];
 var movementActive = [false, false, false];
-var movementSpeeds = [RINGS_MOVEMENT_SPEED, RINGS_MOVEMENT_SPEED, RINGS_MOVEMENT_SPEED];
+var movementSpeeds = [
+  RINGS_MOVEMENT_SPEED,
+  RINGS_MOVEMENT_SPEED,
+  RINGS_MOVEMENT_SPEED,
+];
 
 var keysMap = new Map();
 
@@ -59,11 +67,11 @@ function createPerspectiveCamera() {
   camera = new THREE.PerspectiveCamera(
     80,
     window.innerWidth / window.innerHeight,
-    0.1,
-    1000
+    0.05,
+    2000
   );
   camera.position.x = 0;
-  camera.position.y = 2;
+  camera.position.y = 2.5;
   camera.position.z = 5;
   camera.lookAt(0, 0, 0);
 }
@@ -131,6 +139,7 @@ function addRings(parent) {
     const ringGroup = new THREE.Object3D();
     ringGroup.position.set(0, RING_HEIGHT * (ringCount - i), 0);
     addRing(ringGroup, i);
+    addPieces(ringGroup, i);
 
     rings.push(ringGroup);
 
@@ -174,8 +183,59 @@ function createRingShape(innerRadius, outerRadius) {
   holePath.moveTo(innerRadius, 0);
   holePath.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
   ringShape.holes.push(holePath);
-  
+
   return ringShape;
+}
+
+function addPieces(parent, ringIndex) {
+  const offset = Math.PI / 8;
+  const radius = RING_CENTER_OFFSET[ringIndex] + RING_RADIUS / 2;
+
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x2277ff,
+    wireframe: DEFAULT_WIREFRAME,
+    side: THREE.DoubleSide,
+  });
+
+  const geometries = [
+    new ParametricGeometry(ParametricGeometries.mobius, 20, 20),
+    new ParametricGeometry(ParametricGeometries.klein, 20, 20),
+    new ParametricGeometries.TorusKnotGeometry(),
+  ];
+
+  for (let i = 0; i < RING_PIECES_COUNT; i++) {
+    const currentGeometry = geometries[i % geometries.length];
+    const piece = new THREE.Mesh(currentGeometry, material);
+    const placementAngle = i * ((2 * Math.PI) / RING_PIECES_COUNT) + offset;
+
+    piece.position.setX(radius * Math.cos(placementAngle));
+    piece.position.setZ(radius * Math.sin(placementAngle));
+    alignPieceVertically(piece, ringIndex);
+
+    parent.add(piece);
+  }
+}
+
+function alignPieceVertically(pieceObject, ringIndex) {
+  const box = new THREE.Box3().setFromObject(pieceObject);
+  const largestMeasure = Math.max(
+    box.max.x - box.min.x,
+    box.max.y - box.min.y,
+    box.max.z - box.min.z
+  );
+
+  const targetMaxMeasure = RING_PIECE_SIZE[ringIndex];
+
+  const scaleFactor = targetMaxMeasure / largestMeasure;
+
+  pieceObject.scale.x = scaleFactor;
+  pieceObject.scale.y = scaleFactor;
+  pieceObject.scale.z = scaleFactor;
+
+  box.setFromObject(pieceObject);
+  const height = box.max.y - box.min.y;
+
+  pieceObject.position.setY(height / 2);
 }
 
 //////////////////////
@@ -193,6 +253,8 @@ function checkCollisions() {
 /* UPDATE */
 ////////////
 function moveRing(ringIndex) {
+  "use strict";
+
   const movementSpeed = movementSpeeds[ringIndex];
   const ring = rings[ringIndex];
   let delta = movementSpeed * deltaTime;
@@ -217,7 +279,8 @@ function update() {
     callback();
   }
 
-  for (let i = 0; i < 3; i++) {
+  const ringCount = RING_CENTER_OFFSET.length;
+  for (let i = 0; i < ringCount; i++) {
     if (movementActive[i]) {
       moveRing(i);
     }
@@ -290,7 +353,7 @@ function onKeyDown(e) {
         movementActive[ringIndex] = !movementActive[ringIndex];
         keysMap.delete(key);
       };
-      keysMap.set(key, callback); // FIXME: is this needed?
+      keysMap.set(key, callback);
       break;
     case "d":
       callback = () => {};
