@@ -55,8 +55,8 @@ function createScene() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xb8d3d9);
 
-  addFloor(scene);
   addCarousel(scene);
+  addSkydome(scene);
 }
 
 //////////////////////
@@ -83,30 +83,6 @@ function createPerspectiveCamera() {
 ////////////////////////
 /* CREATE OBJECT3D(S) */
 ////////////////////////
-function addFloor(parent) {
-  "use strict";
-
-  const material = new THREE.MeshBasicMaterial({
-    color: 0x808080,
-    side: THREE.DoubleSide,
-    wireframe: DEFAULT_WIREFRAME,
-  });
-  const geometry = new THREE.BoxGeometry(
-    50 * 5, // FIXME: hardcoded
-    50 * 5,
-    10,
-    3,
-    3
-  );
-
-  const floor = new THREE.Mesh(geometry, material);
-
-  floor.position.y -= 5;
-  floor.rotation.x = Math.PI / 2;
-
-  parent.add(floor);
-}
-
 function addCarousel(parent) {
   "use strict";
 
@@ -236,6 +212,24 @@ function alignPieceVertically(pieceObject, ringIndex) {
   const height = box.max.y - box.min.y;
 
   pieceObject.position.setY(height / 2);
+}
+
+function addSkydome(parent) {
+  const textureLoader = new THREE.TextureLoader();
+  textureLoader.load("images/skydome.png", function (texture) {
+    const geometry = new THREE.SphereGeometry(8);
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.repeat.set(8, 1);
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      side: THREE.BackSide,
+    });
+
+    const sphere = new THREE.Mesh(geometry, material);
+
+    parent.add(sphere);
+  });
 }
 
 //////////////////////
