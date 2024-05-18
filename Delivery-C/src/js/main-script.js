@@ -19,12 +19,19 @@ const RING_CENTER_OFFSET = [
   CENTRAL_CYLINDER_RADIUS + RING_RADIUS,
   CENTRAL_CYLINDER_RADIUS + 2 * RING_RADIUS,
 ];
-const RING_PIECE_SIZE = [RING_RADIUS * 0.4, RING_RADIUS * 0.7, RING_RADIUS * 1];
+const RING_PIECE_SIZE = [
+  RING_RADIUS * 0.3,
+  RING_RADIUS * 0.55,
+  RING_RADIUS * 0.8,
+];
 const RING_PIECES_COUNT = 8;
 
 const DEFAULT_WIREFRAME = false;
 
 const RINGS_MOVEMENT_SPEED = 2;
+
+const RINGS_PIECE_ORIENTATION = [0, Math.PI / 4, -Math.PI / 4];
+const RINGS_PIECE_ROTATION_SPEED = [1.3, -1.8, 2.3];
 
 // Variables
 
@@ -33,13 +40,16 @@ var scene, renderer;
 var camera;
 
 var centralCylinder;
+
 var rings = [];
-var movementActive = [false, false, false];
-var movementSpeeds = [
+var ringsMovementStatus = [false, false, false];
+var ringMovementSpeeds = [
   RINGS_MOVEMENT_SPEED,
   RINGS_MOVEMENT_SPEED,
   RINGS_MOVEMENT_SPEED,
 ];
+
+var pieces = [];
 
 var keysMap = new Map();
 
@@ -147,6 +157,7 @@ function addRing(parent, ringIndex) {
 
   const extrudeSettings = {
     steps: 1,
+    curveSegments: 64,
     depth: RING_HEIGHT,
     bevelEnabled: false,
   };
@@ -182,7 +193,7 @@ function addPieces(parent, ringIndex) {
   const radius = RING_CENTER_OFFSET[ringIndex] + RING_RADIUS / 2;
 
   const material = new THREE.MeshPhongMaterial({
-    color: 0x2277ff,
+    color: 0x34eb8c,
     wireframe: DEFAULT_WIREFRAME,
     side: THREE.DoubleSide,
   });
@@ -193,17 +204,25 @@ function addPieces(parent, ringIndex) {
     new ParametricGeometries.TorusKnotGeometry(),
   ];
 
+  const newPieces = [];
   for (let i = 0; i < RING_PIECES_COUNT; i++) {
     const currentGeometry = geometries[i % geometries.length];
     const piece = new THREE.Mesh(currentGeometry, material);
     const placementAngle = i * ((2 * Math.PI) / RING_PIECES_COUNT) + offset;
 
-    piece.position.setX(radius * Math.cos(placementAngle));
-    piece.position.setZ(radius * Math.sin(placementAngle));
-    alignPieceVertically(piece, ringIndex);
+    const pieceGroup = new THREE.Object3D();
+    pieceGroup.rotateX(RINGS_PIECE_ORIENTATION[ringIndex]);
+    pieceGroup.rotateZ(RINGS_PIECE_ORIENTATION[ringIndex]);
+    pieceGroup.add(piece);
 
-    parent.add(piece);
+    pieceGroup.position.setX(radius * Math.cos(placementAngle));
+    pieceGroup.position.setZ(radius * Math.sin(placementAngle));
+    alignPieceVertically(pieceGroup, ringIndex);
+
+    newPieces.push(piece);
+    parent.add(pieceGroup);
   }
+  pieces.push(newPieces);
 }
 
 function alignPieceVertically(pieceObject, ringIndex) {
@@ -225,7 +244,7 @@ function alignPieceVertically(pieceObject, ringIndex) {
   box.setFromObject(pieceObject);
   const height = box.max.y - box.min.y;
 
-  pieceObject.position.setY(height / 2);
+  pieceObject.position.setY(height / 2 + RING_HEIGHT / 4);
 }
 
 function addSkydome(parent) {
@@ -234,7 +253,7 @@ function addSkydome(parent) {
     const geometry = new THREE.SphereGeometry(8);
     texture.wrapT = THREE.RepeatWrapping;
     texture.wrapS = THREE.RepeatWrapping;
-    texture.repeat.set(8, 1);
+    texture.repeat.set(8, 6);
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       side: THREE.BackSide,
@@ -263,21 +282,39 @@ function checkCollisions() {
 function moveRing(ringIndex) {
   "use strict";
 
-  const movementSpeed = movementSpeeds[ringIndex];
+  const movementSpeed = ringMovementSpeeds[ringIndex];
   const ring = rings[ringIndex];
   let delta = movementSpeed * deltaTime;
 
   if (movementSpeed > 0 && ring.position.y + delta > CENTRAL_CYLINDER_HEIGHT) {
     delta = CENTRAL_CYLINDER_HEIGHT - ring.position.y;
-    movementSpeeds[ringIndex] *= -1;
+    ringMovementSpeeds[ringIndex] *= -1;
   }
 
   if (movementSpeed < 0 && ring.position.y + delta < RING_HEIGHT) {
     delta = RING_HEIGHT - ring.position.y;
-    movementSpeeds[ringIndex] *= -1;
+    ringMovementSpeeds[ringIndex] *= -1;
   }
 
   ring.position.y += delta;
+}
+
+function rotateCentralCylinder() {
+  "use strict";
+
+  const movementSpeed = 0.5;
+  centralCylinder.rotation.y += movementSpeed * deltaTime;
+}
+
+function rotatePieces() {
+  "use strict";
+
+  for (let i = 0; i < pieces.length; i++) {
+    const ringPieces = pieces[i];
+    for (const piece of ringPieces) {
+      piece.rotation.y += RINGS_PIECE_ROTATION_SPEED[i] * deltaTime;
+    }
+  }
 }
 
 function update() {
@@ -289,10 +326,13 @@ function update() {
 
   const ringCount = RING_CENTER_OFFSET.length;
   for (let i = 0; i < ringCount; i++) {
-    if (movementActive[i]) {
+    if (ringsMovementStatus[i]) {
       moveRing(i);
     }
   }
+
+  rotateCentralCylinder();
+  rotatePieces();
 }
 
 /////////////
@@ -316,6 +356,8 @@ function init() {
 
   createScene();
   createPerspectiveCamera();
+
+  new OrbitControls(camera, renderer.domElement);
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
@@ -358,7 +400,7 @@ function onKeyDown(e) {
     case "3":
       callback = () => {
         const ringIndex = Number(key) - 1;
-        movementActive[ringIndex] = !movementActive[ringIndex];
+        ringsMovementStatus[ringIndex] = !ringsMovementStatus[ringIndex];
         keysMap.delete(key);
       };
       keysMap.set(key, callback);
