@@ -20,9 +20,9 @@ const RING_CENTER_OFFSET = [
   CENTRAL_CYLINDER_RADIUS + 2 * RING_RADIUS,
 ];
 const RING_PIECE_SIZE = [
-  RING_RADIUS * 0.3,
+  RING_RADIUS * 0.4,
   RING_RADIUS * 0.55,
-  RING_RADIUS * 0.8,
+  RING_RADIUS * 0.7,
 ];
 const RING_PIECES_COUNT = 8;
 
@@ -30,7 +30,7 @@ const DEFAULT_WIREFRAME = false;
 
 const RINGS_MOVEMENT_SPEED = 2;
 
-const RINGS_PIECE_ORIENTATION = [0, Math.PI / 4, -Math.PI / 4];
+const RINGS_PIECE_ORIENTATION = [Math.PI / 8, Math.PI / 4, -Math.PI / 4];
 const RINGS_PIECE_ROTATION_SPEED = [1.3, -1.8, 2.3];
 
 // Variables
@@ -162,7 +162,6 @@ function addMobius(parent) {
     for (let j = 0; j <= stripWidth; j++) {
       const u = j / stripWidth;
       const vertex = addVertex(u, v);
-      console.log(vertex);
       vertices.push(vertex.x, vertex.y, vertex.z);
     }
   }
@@ -275,17 +274,22 @@ function addPieces(parent, ringIndex) {
   const material = new THREE.MeshLambertMaterial(materialOptions);
 
   const geometries = [
-    new ParametricGeometry(ParametricGeometries.mobius, 20, 20),
-    new ParametricGeometry(ParametricGeometries.klein, 20, 20),
-    new ParametricGeometries.TorusKnotGeometry(),
+    new ParametricGeometry(coneFunction, 32, 32),
+    new ParametricGeometry(tiltedCylinderFunction, 20, 20),
+    new ParametricGeometry(romanSurfaceFunction, 32, 32),
+    new ParametricGeometry(taperedCylinderFunction, 20, 20),
+    new ParametricGeometry(saddleFunction, 20, 20),
+    new ParametricGeometry(torusFunction, 20, 20),
+    new ParametricGeometry(hemisphereFunction, 32, 32),
+    new ParametricGeometry(enneperSurfaceFunction, 32, 32),
   ];
 
   const newPieces = [];
   for (let i = 0; i < RING_PIECES_COUNT; i++) {
-    const currentGeometry = geometries[i % geometries.length];
+    const currentGeometry = geometries[(i + ringIndex * 2) % geometries.length];
     const piece = createMeshMaterial(
       currentGeometry,
-      material,
+      material.clone(),
       materialOptions
     );
     const placementAngle = i * ((2 * Math.PI) / RING_PIECES_COUNT) + offset;
@@ -299,7 +303,7 @@ function addPieces(parent, ringIndex) {
     pieceGroup.position.setZ(radius * Math.sin(placementAngle));
     alignPieceVertically(pieceGroup, RING_PIECE_SIZE[ringIndex]);
 
-    newPieces.push(piece);
+    newPieces.push(pieceGroup);
     parent.add(pieceGroup);
   }
   pieces.push(newPieces);
@@ -345,6 +349,89 @@ function addSkydome(parent) {
 
     parent.add(sphere);
   });
+}
+
+///////////////////////////
+/* PARAMETRIC GEOMETRIES */
+///////////////////////////
+function coneFunction(u, v, target) {
+  const radius = 5;
+  const height = 10;
+  const theta = 2 * Math.PI * u;
+  const r = radius * (1 - v);
+  const x = r * Math.cos(theta);
+  const y = height * v;
+  const z = r * Math.sin(theta);
+  target.set(x, y, z);
+}
+
+function tiltedCylinderFunction(u, v, target) {
+  const radius = 3;
+  const height = 10;
+  const theta = 2 * Math.PI * u;
+  const offsetX = 4 * v;
+  const x = radius * Math.cos(theta) + offsetX;
+  const y = height * (v - 0.5);
+  const z = radius * Math.sin(theta);
+  target.set(x, y, z);
+}
+
+function taperedCylinderFunction(u, v, target) {
+  const radiusTop = 5;
+  const radiusBottom = 2;
+  const height = 5;
+  const theta = 2 * Math.PI * u;
+  const r = radiusTop + (radiusBottom - radiusTop) * (1 - v);
+  const x = r * Math.cos(theta);
+  const y = height * (v - 0.5);
+  const z = r * Math.sin(theta);
+  target.set(x, y, z);
+}
+
+function torusFunction(u, v, target) {
+  const radius = 5;
+  const tube = 2;
+  const theta = 2 * Math.PI * u;
+  const phi = 2 * Math.PI * v;
+  const x = (radius + tube * Math.cos(phi)) * Math.cos(theta);
+  const y = (radius + tube * Math.cos(phi)) * Math.sin(theta);
+  const z = tube * Math.sin(phi);
+  target.set(x, y, z);
+}
+
+function hemisphereFunction(u, v, target) {
+  const radius = 5;
+  const theta = Math.PI * u;
+  const phi = (Math.PI / 2) * v;
+  const x = radius * Math.cos(theta) * Math.sin(phi);
+  const y = radius * Math.cos(phi);
+  const z = radius * Math.sin(theta) * Math.sin(phi);
+  target.set(x, y, z);
+}
+
+function saddleFunction(u, v, target) {
+  const x = u;
+  const z = v;
+  const y = Math.pow(u, 2) - Math.pow(v, 2);
+  target.set(x, y, z);
+}
+
+function romanSurfaceFunction(u, v, target) {
+  u = u * Math.PI * 2;
+  v = v * Math.PI;
+  const x = Math.sin(u) * Math.cos(v) * Math.cos(v);
+  const y = Math.sin(u) * Math.sin(v) * Math.sin(v);
+  const z = (Math.cos(u) * Math.sin(2 * v)) / 2;
+  target.set(x, y, z);
+}
+
+function enneperSurfaceFunction(u, v, target) {
+  u = u * 2 - 1;
+  v = v * 2 - 1;
+  const x = u - u ** 3 / 3 + u * v ** 2;
+  const y = v - v ** 3 / 3 + v * u ** 2;
+  const z = u ** 2 - v ** 2;
+  target.set(x, y, z);
 }
 
 //////////////////////
