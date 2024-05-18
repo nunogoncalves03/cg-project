@@ -29,7 +29,7 @@ const RING_PIECES_COUNT = 8;
 
 const DEFAULT_WIREFRAME = false;
 
-const RINGS_MOVEMENT_SPEED = 2;
+const RINGS_MOVEMENT_SPEED = 1.75;
 
 const RINGS_PIECE_ORIENTATION = [Math.PI / 8, Math.PI / 4, -Math.PI / 4];
 const RINGS_PIECE_ROTATION_SPEED = [1.3, -1.8, 2.3];
@@ -41,6 +41,8 @@ const RINGS_COLOR = [0xeeeeee, CENTRAL_CYLINDER_COLOR, 0xeeeeee];
 var scene, renderer;
 
 var camera;
+
+var spotlights = [];
 
 var centralCylinder;
 
@@ -107,6 +109,15 @@ function createDirectionalLight(scene) {
   directionalLight.position.set(0, centralCylinder.position.y + 2, 5);
   directionalLight.target = centralCylinder;
   scene.add(directionalLight);
+}
+
+function createSpotlight(parent, targetPiece) {
+  const spotlight = new THREE.SpotLight(0xffffff, 0.2, 1);
+  spotlight.position.set(0, 0, 0);
+  spotlight.target = targetPiece;
+
+  spotlights.push(spotlight);
+  parent.add(spotlight);
 }
 
 ////////////////////////
@@ -195,7 +206,7 @@ function addMobius(parent) {
   mobius.rotation.x = Math.PI / 2;
   const size = (CENTRAL_CYLINDER_HEIGHT * 2) / 3;
 
-  alignPieceVertically(mobius, size, CENTRAL_CYLINDER_HEIGHT);
+  alignPieceVertically(mobius, size, CENTRAL_CYLINDER_HEIGHT + 0.2);
 
   parent.add(mobius);
 }
@@ -279,9 +290,9 @@ function addPieces(parent, ringIndex) {
   const geometries = [
     new ParametricGeometry(coneFunction, 32, 32),
     new ParametricGeometry(tiltedCylinderFunction, 20, 20),
+    new ParametricGeometry(hyperboloidFunction, 32, 32),
     new ParametricGeometry(romanSurfaceFunction, 32, 32),
     new ParametricGeometry(taperedCylinderFunction, 20, 20),
-    new ParametricGeometry(saddleFunction, 20, 20),
     new ParametricGeometry(torusFunction, 20, 20),
     new ParametricGeometry(hemisphereFunction, 32, 32),
     new ParametricGeometry(enneperSurfaceFunction, 32, 32),
@@ -298,15 +309,23 @@ function addPieces(parent, ringIndex) {
     const placementAngle = i * ((2 * Math.PI) / RING_PIECES_COUNT) + offset;
 
     const pieceGroup = new THREE.Object3D();
-    pieceGroup.rotateX(RINGS_PIECE_ORIENTATION[ringIndex]);
-    pieceGroup.rotateZ(RINGS_PIECE_ORIENTATION[ringIndex]);
-    pieceGroup.add(piece);
-
     pieceGroup.position.setX(radius * Math.cos(placementAngle));
     pieceGroup.position.setZ(radius * Math.sin(placementAngle));
-    alignPieceVertically(pieceGroup, RING_PIECE_SIZE[ringIndex]);
 
-    newPieces.push(pieceGroup);
+    const pieceRotAxis = new THREE.Object3D();
+    pieceRotAxis.rotateX(RINGS_PIECE_ORIENTATION[ringIndex]);
+    pieceRotAxis.rotateZ(RINGS_PIECE_ORIENTATION[ringIndex]);
+    pieceRotAxis.add(piece);
+
+    pieceRotAxis.position.setX(0);
+    pieceRotAxis.position.setZ(0);
+    alignPieceVertically(pieceRotAxis, RING_PIECE_SIZE[ringIndex]);
+    pieceGroup.add(pieceRotAxis);
+
+    // Create spotlight
+    createSpotlight(pieceGroup, piece);
+
+    newPieces.push(pieceRotAxis);
     parent.add(pieceGroup);
   }
   pieces.push(newPieces);
@@ -412,10 +431,12 @@ function hemisphereFunction(u, v, target) {
   target.set(x, y, z);
 }
 
-function saddleFunction(u, v, target) {
-  const x = u;
-  const z = v;
-  const y = Math.pow(u, 2) - Math.pow(v, 2);
+function hyperboloidFunction(u, v, target) {
+  const r = 1.4 * v;
+  const theta = 2 * Math.PI * u;
+  const x = r * Math.cos(theta);
+  const y = r * Math.sin(theta);
+  const z = Math.pow(r, 2);
   target.set(x, y, z);
 }
 
@@ -457,14 +478,16 @@ function moveRing(ringIndex) {
   const movementSpeed = ringMovementSpeeds[ringIndex];
   const ring = rings[ringIndex];
   let delta = movementSpeed * deltaTime;
+  const maxHeight = CENTRAL_CYLINDER_HEIGHT - RING_HEIGHT * 2;
+  const minHeight = RING_HEIGHT;
 
-  if (movementSpeed > 0 && ring.position.y + delta > CENTRAL_CYLINDER_HEIGHT) {
-    delta = CENTRAL_CYLINDER_HEIGHT - ring.position.y;
+  if (movementSpeed > 0 && ring.position.y + delta > maxHeight) {
+    delta = maxHeight - ring.position.y;
     ringMovementSpeeds[ringIndex] *= -1;
   }
 
-  if (movementSpeed < 0 && ring.position.y + delta < RING_HEIGHT) {
-    delta = RING_HEIGHT - ring.position.y;
+  if (movementSpeed < 0 && ring.position.y + delta < minHeight) {
+    delta = minHeight - ring.position.y;
     ringMovementSpeeds[ringIndex] *= -1;
   }
 
@@ -614,8 +637,12 @@ function onKeyDown(e) {
       keysMap.set(key, callback);
       break;
     case "s":
-      // TODO: toggle luzes spotlight
-      callback = () => {};
+      callback = () => {
+        for (const spotlight of spotlights) {
+          spotlight.visible = !spotlight.visible;
+        }
+        keysMap.delete(key);
+      };
       keysMap.set(key, callback);
       break;
     case "q":
