@@ -51,6 +51,8 @@ var ringMovementSpeeds = [
 
 var pieces = [];
 
+var meshes = [];
+
 var keysMap = new Map();
 
 const clock = new THREE.Clock();
@@ -107,6 +109,16 @@ function createDirectionalLight(scene) {
 ////////////////////////
 /* CREATE OBJECT3D(S) */
 ////////////////////////
+function createMeshMaterial(geometry, material, materialOptions) {
+  "use strict";
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.userData = { materialOptions };
+  meshes.push(mesh);
+
+  return mesh;
+}
+
 function addCarousel(parent) {
   "use strict";
 
@@ -117,17 +129,18 @@ function addCarousel(parent) {
 function addCentralCylinder(parent) {
   "use strict";
 
-  const material = new THREE.MeshPhongMaterial({
+  const materialOptions = {
     color: 0x0000ff,
     wireframe: DEFAULT_WIREFRAME,
-  });
+  };
+  const material = new THREE.MeshLambertMaterial(materialOptions);
   const geometry = new THREE.CylinderGeometry(
     CENTRAL_CYLINDER_RADIUS,
     CENTRAL_CYLINDER_RADIUS,
     CENTRAL_CYLINDER_HEIGHT
   );
 
-  centralCylinder = new THREE.Mesh(geometry, material);
+  centralCylinder = createMeshMaterial(geometry, material, materialOptions);
   centralCylinder.position.set(0, CENTRAL_CYLINDER_HEIGHT / 2, 0);
 
   parent.add(centralCylinder);
@@ -164,11 +177,10 @@ function addRing(parent, ringIndex) {
 
   // Create geometry by extruding the ring shape
   const geometry = new THREE.ExtrudeGeometry(ringShape, extrudeSettings);
-  const material = new THREE.MeshPhongMaterial({
-    color: ringIndex % 2 == 0 ? 0xff0000 : 0x0000ff,
-  });
+  const materialOptions = { color: ringIndex % 2 == 0 ? 0xff0000 : 0x0000ff };
+  const material = new THREE.MeshLambertMaterial(materialOptions);
 
-  const ring = new THREE.Mesh(geometry, material);
+  const ring = createMeshMaterial(geometry, material, materialOptions);
   ring.position.set(0, 0, 0);
   ring.rotateX(Math.PI / 2);
 
@@ -192,11 +204,12 @@ function addPieces(parent, ringIndex) {
   const offset = Math.PI / 8;
   const radius = RING_CENTER_OFFSET[ringIndex] + RING_RADIUS / 2;
 
-  const material = new THREE.MeshPhongMaterial({
+  const materialOptions = {
     color: 0x34eb8c,
     wireframe: DEFAULT_WIREFRAME,
     side: THREE.DoubleSide,
-  });
+  };
+  const material = new THREE.MeshLambertMaterial(materialOptions);
 
   const geometries = [
     new ParametricGeometry(ParametricGeometries.mobius, 20, 20),
@@ -207,7 +220,7 @@ function addPieces(parent, ringIndex) {
   const newPieces = [];
   for (let i = 0; i < RING_PIECES_COUNT; i++) {
     const currentGeometry = geometries[i % geometries.length];
-    const piece = new THREE.Mesh(currentGeometry, material);
+    const piece = createMeshMaterial(currentGeometry, material, materialOptions);
     const placementAngle = i * ((2 * Math.PI) / RING_PIECES_COUNT) + offset;
 
     const pieceGroup = new THREE.Object3D();
@@ -313,6 +326,25 @@ function rotatePieces() {
     const ringPieces = pieces[i];
     for (const piece of ringPieces) {
       piece.rotation.y += RINGS_PIECE_ROTATION_SPEED[i] * deltaTime;
+    }
+  }
+}
+
+function switchMaterials(key) {
+  for (const mesh of meshes) {
+    switch (key) {
+      case "q":
+        mesh.material = new THREE.MeshLambertMaterial(mesh.userData.materialOptions);
+        break;
+      case "w":
+        mesh.material = new THREE.MeshPhongMaterial(mesh.userData.materialOptions);
+        break;
+      case "e":
+        mesh.material = new THREE.MeshToonMaterial(mesh.userData.materialOptions);
+        break;
+      case "r":
+        mesh.material = new THREE.MeshNormalMaterial(mesh.userData.materialOptions);
+        break;
     }
   }
 }
@@ -423,8 +455,10 @@ function onKeyDown(e) {
     case "w":
     case "e":
     case "r":
-      // TODO: change materials
-      callback = () => {};
+      callback = () => {
+        switchMaterials(key);
+        keysMap.delete(key);
+      };
       keysMap.set(key, callback);
       break;
     case "t":
