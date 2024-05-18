@@ -11,6 +11,7 @@ import { ParametricGeometry } from "three/addons/geometries/ParametricGeometry.j
 //////////////////////
 const CENTRAL_CYLINDER_RADIUS = 0.15,
   CENTRAL_CYLINDER_HEIGHT = 3.5;
+const CENTRAL_CYLINDER_COLOR = 0xcccccc;
 
 const RING_RADIUS = 0.9,
   RING_HEIGHT = 0.2;
@@ -32,6 +33,8 @@ const RINGS_MOVEMENT_SPEED = 2;
 
 const RINGS_PIECE_ORIENTATION = [Math.PI / 8, Math.PI / 4, -Math.PI / 4];
 const RINGS_PIECE_ROTATION_SPEED = [1.3, -1.8, 2.3];
+const RINGS_PIECE_COLOR = [0xf57f89, 0x34ebba, 0xf0b673];
+const RINGS_COLOR = [0xeeeeee, CENTRAL_CYLINDER_COLOR, 0xeeeeee];
 
 // Variables
 
@@ -95,13 +98,13 @@ function createPerspectiveCamera() {
 /////////////////////
 
 function createAmbientLight(scene) {
-  const light = new THREE.AmbientLight(0xffa257, 0.5);
+  const light = new THREE.AmbientLight(0xde9b4e, 0.5);
   scene.add(light);
 }
 
 function createDirectionalLight(scene) {
   const directionalLight = new THREE.DirectionalLight(0xffffff);
-  directionalLight.position.set(0, centralCylinder.position.y, 5);
+  directionalLight.position.set(0, centralCylinder.position.y + 2, 5);
   directionalLight.target = centralCylinder;
   scene.add(directionalLight);
 }
@@ -131,7 +134,7 @@ function addCentralCylinder(parent) {
   "use strict";
 
   const materialOptions = {
-    color: 0x0000ff,
+    color: CENTRAL_CYLINDER_COLOR,
     wireframe: DEFAULT_WIREFRAME,
   };
   const material = new THREE.MeshLambertMaterial(materialOptions);
@@ -239,7 +242,7 @@ function addRing(parent, ringIndex) {
 
   // Create geometry by extruding the ring shape
   const geometry = new THREE.ExtrudeGeometry(ringShape, extrudeSettings);
-  const materialOptions = { color: ringIndex % 2 == 0 ? 0xff0000 : 0x0000ff };
+  const materialOptions = { color: RINGS_COLOR[ringIndex] };
   const material = new THREE.MeshLambertMaterial(materialOptions);
 
   const ring = createMeshMaterial(geometry, material, materialOptions);
@@ -267,7 +270,7 @@ function addPieces(parent, ringIndex) {
   const radius = RING_CENTER_OFFSET[ringIndex] + RING_RADIUS / 2;
 
   const materialOptions = {
-    color: 0x34eb8c,
+    color: RINGS_PIECE_COLOR[ringIndex],
     wireframe: DEFAULT_WIREFRAME,
     side: THREE.DoubleSide,
   };
@@ -339,7 +342,7 @@ function addSkydome(parent) {
     const geometry = new THREE.SphereGeometry(8);
     texture.wrapT = THREE.RepeatWrapping;
     texture.wrapS = THREE.RepeatWrapping;
-    texture.repeat.set(8, 6);
+    texture.repeat.set(6, 2);
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       side: THREE.BackSide,
