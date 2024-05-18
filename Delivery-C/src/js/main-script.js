@@ -86,7 +86,7 @@ function createPerspectiveCamera() {
   );
   camera.position.x = 0;
   camera.position.y = 2.5;
-  camera.position.z = 5;
+  camera.position.z = 6;
   camera.lookAt(0, 0, 0);
 }
 
@@ -123,6 +123,7 @@ function addCarousel(parent) {
   "use strict";
 
   addCentralCylinder(parent);
+  addMobius(parent);
   addRings(parent);
 }
 
@@ -144,6 +145,68 @@ function addCentralCylinder(parent) {
   centralCylinder.position.set(0, CENTRAL_CYLINDER_HEIGHT / 2, 0);
 
   parent.add(centralCylinder);
+}
+
+function addMobius(parent) {
+  const segments = 10;
+  const stripWidth = 10;
+
+  const vertices = [];
+  const indices = [];
+
+  const geometry = new THREE.BufferGeometry();
+  const slice = segments + 1;
+
+  for (let i = 0; i <= segments; i++) {
+    const v = i / segments;
+    for (let j = 0; j <= stripWidth; j++) {
+      const u = j / stripWidth;
+      const vertex = addVertex(u, v);
+      console.log(vertex);
+      vertices.push(vertex.x, vertex.y, vertex.z);
+    }
+  }
+
+  for (let i = 0; i < segments; i++) {
+    for (let j = 0; j < stripWidth; j++) {
+      const a = i * slice + j;
+      const b = i * slice + j + 1;
+      const c = (i + 1) * slice + j + 1;
+      const d = (i + 1) * slice + j;
+
+      indices.push(a, b, d);
+      indices.push(b, c, d);
+    }
+  }
+
+  geometry.setIndex(indices);
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(vertices, 3)
+  );
+
+  const materialOptions = { color: 0x34eb8c, side: THREE.DoubleSide };
+
+  const material = new THREE.MeshLambertMaterial(materialOptions);
+  const mobius = createMeshMaterial(geometry, material, materialOptions);
+
+  mobius.rotation.x = Math.PI / 2;
+  const size = (CENTRAL_CYLINDER_HEIGHT * 2) / 3;
+
+  alignPieceVertically(mobius, size, CENTRAL_CYLINDER_HEIGHT);
+
+  parent.add(mobius);
+}
+
+function addVertex(u, t) {
+  u = u - 0.5;
+  const v = 2 * Math.PI * t;
+  const a = 2;
+  const x = Math.cos(v) * (a + u * Math.cos(v / 2));
+  const y = Math.sin(v) * (a + u * Math.cos(v / 2));
+  const z = u * Math.sin(v / 2);
+  const vertex = new THREE.Vector3(x, y, z);
+  return vertex;
 }
 
 function addRings(parent) {
@@ -220,7 +283,11 @@ function addPieces(parent, ringIndex) {
   const newPieces = [];
   for (let i = 0; i < RING_PIECES_COUNT; i++) {
     const currentGeometry = geometries[i % geometries.length];
-    const piece = createMeshMaterial(currentGeometry, material, materialOptions);
+    const piece = createMeshMaterial(
+      currentGeometry,
+      material,
+      materialOptions
+    );
     const placementAngle = i * ((2 * Math.PI) / RING_PIECES_COUNT) + offset;
 
     const pieceGroup = new THREE.Object3D();
@@ -230,7 +297,7 @@ function addPieces(parent, ringIndex) {
 
     pieceGroup.position.setX(radius * Math.cos(placementAngle));
     pieceGroup.position.setZ(radius * Math.sin(placementAngle));
-    alignPieceVertically(pieceGroup, ringIndex);
+    alignPieceVertically(pieceGroup, RING_PIECE_SIZE[ringIndex]);
 
     newPieces.push(piece);
     parent.add(pieceGroup);
@@ -238,15 +305,17 @@ function addPieces(parent, ringIndex) {
   pieces.push(newPieces);
 }
 
-function alignPieceVertically(pieceObject, ringIndex) {
+function alignPieceVertically(
+  pieceObject,
+  targetMaxMeasure,
+  targetY = RING_HEIGHT / 4
+) {
   const box = new THREE.Box3().setFromObject(pieceObject);
   const largestMeasure = Math.max(
     box.max.x - box.min.x,
     box.max.y - box.min.y,
     box.max.z - box.min.z
   );
-
-  const targetMaxMeasure = RING_PIECE_SIZE[ringIndex];
 
   const scaleFactor = targetMaxMeasure / largestMeasure;
 
@@ -257,7 +326,7 @@ function alignPieceVertically(pieceObject, ringIndex) {
   box.setFromObject(pieceObject);
   const height = box.max.y - box.min.y;
 
-  pieceObject.position.setY(height / 2 + RING_HEIGHT / 4);
+  pieceObject.position.setY(height / 2 + targetY);
 }
 
 function addSkydome(parent) {
@@ -334,16 +403,24 @@ function switchMaterials(key) {
   for (const mesh of meshes) {
     switch (key) {
       case "q":
-        mesh.material = new THREE.MeshLambertMaterial(mesh.userData.materialOptions);
+        mesh.material = new THREE.MeshLambertMaterial(
+          mesh.userData.materialOptions
+        );
         break;
       case "w":
-        mesh.material = new THREE.MeshPhongMaterial(mesh.userData.materialOptions);
+        mesh.material = new THREE.MeshPhongMaterial(
+          mesh.userData.materialOptions
+        );
         break;
       case "e":
-        mesh.material = new THREE.MeshToonMaterial(mesh.userData.materialOptions);
+        mesh.material = new THREE.MeshToonMaterial(
+          mesh.userData.materialOptions
+        );
         break;
       case "r":
-        mesh.material = new THREE.MeshNormalMaterial(mesh.userData.materialOptions);
+        mesh.material = new THREE.MeshNormalMaterial(
+          mesh.userData.materialOptions
+        );
         break;
     }
   }
