@@ -44,6 +44,7 @@ var camera;
 
 var lights = [];
 var lightsActive = true;
+var directionalLight;
 var spotlights = [];
 
 var centralCylinder;
@@ -109,7 +110,7 @@ function createAmbientLight(scene) {
 }
 
 function createDirectionalLight(scene) {
-  const directionalLight = new THREE.DirectionalLight(0xffffff);
+  directionalLight = new THREE.DirectionalLight(0xffffff);
   directionalLight.position.set(0, centralCylinder.position.y + 2, 5);
   directionalLight.target = centralCylinder;
 
@@ -641,7 +642,10 @@ function onKeyDown(e) {
       keysMap.set(key, callback);
       break;
     case "d":
-      callback = () => {};
+      callback = () => {
+        directionalLight.visible = !directionalLight.visible;
+        keysMap.delete(key);
+      };
       keysMap.set(key, callback);
       break;
     case "p":
