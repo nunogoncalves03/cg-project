@@ -134,7 +134,7 @@ function createPointLight(parent) {
   const box = new THREE.Box3().setFromObject(parent);
   const radius = box.max.y - box.min.y;
   for (let i = 0; i < numLights; i++) {
-    const pointlight = new THREE.PointLight(0xffffff, 0.5);
+    const pointlight = new THREE.PointLight(0xffffff, 0.5, 2);
     const placementAngle = i * ((2 * Math.PI) / numLights);
     pointlight.position.x = radius * Math.cos(placementAngle);
     pointlight.position.z = radius * Math.sin(placementAngle);
