@@ -46,6 +46,7 @@ var lights = [];
 var lightsActive = true;
 var directionalLight;
 var spotlights = [];
+var pointlights = [];
 
 var centralCylinder;
 
@@ -128,6 +129,21 @@ function createSpotlight(parent, targetPiece) {
   parent.add(spotlight);
 }
 
+function createPointLight(parent) {
+  const numLights = 8;
+  const box = new THREE.Box3().setFromObject(parent);
+  const radius = box.max.y - box.min.y;
+  for (let i = 0; i < numLights; i++) {
+    const pointlight = new THREE.PointLight(0xffffff, 0.5);
+    const placementAngle = i * ((2 * Math.PI) / numLights);
+    pointlight.position.x = radius * Math.cos(placementAngle);
+    pointlight.position.z = radius * Math.sin(placementAngle);
+    lights.push(pointlight);
+    pointlights.push(pointlight);
+    parent.add(pointlight);
+  }
+}
+
 ////////////////////////
 /* CREATE OBJECT3D(S) */
 ////////////////////////
@@ -175,9 +191,14 @@ function addMobius(parent) {
 
   const vertices = [];
   const indices = [];
+  const normals = [];
 
+  const EPS = 0.01;
+  const normal = new THREE.Vector3();
   const geometry = new THREE.BufferGeometry();
-  const slice = segments + 1;
+  const slices = segments + 1;
+  const vertex_u = new THREE.Vector3(),
+    vertex_v = new THREE.Vector3();
 
   for (let i = 0; i <= segments; i++) {
     const v = i / segments;
@@ -185,15 +206,33 @@ function addMobius(parent) {
       const u = j / stripWidth;
       const vertex = addVertex(u, v);
       vertices.push(vertex.x, vertex.y, vertex.z);
+
+      if (u - EPS >= 0) {
+        const vertex2 = addVertex(u - EPS, v);
+        vertex_u.subVectors(vertex, vertex2);
+      } else {
+        const vertex2 = addVertex(u + EPS, v);
+        vertex_u.subVectors(vertex2, vertex);
+      }
+
+      if (v - EPS >= 0) {
+        const vertex2 = addVertex(u, v - EPS);
+        vertex_v.subVectors(vertex, vertex2);
+      } else {
+        const vertex2 = addVertex(u, v + EPS);
+        vertex_v.subVectors(vertex2, vertex);
+      }
+      normal.crossVectors(vertex_u, vertex_v).normalize();
+      normals.push(normal.x, normal.y, normal.z);
     }
   }
 
   for (let i = 0; i < segments; i++) {
     for (let j = 0; j < stripWidth; j++) {
-      const a = i * slice + j;
-      const b = i * slice + j + 1;
-      const c = (i + 1) * slice + j + 1;
-      const d = (i + 1) * slice + j;
+      const a = i * slices + j;
+      const b = i * slices + j + 1;
+      const c = (i + 1) * slices + j + 1;
+      const d = (i + 1) * slices + j;
 
       indices.push(a, b, d);
       indices.push(b, c, d);
@@ -205,8 +244,15 @@ function addMobius(parent) {
     "position",
     new THREE.Float32BufferAttribute(vertices, 3)
   );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
 
-  const materialOptions = { color: 0x34eb8c, side: THREE.DoubleSide };
+  const materialOptions = {
+    color: 0x34eb8c,
+    side: THREE.DoubleSide,
+    opacity: 0.7,
+    transparent: true,
+    depthWrite: false,
+  };
 
   const material = new THREE.MeshLambertMaterial(materialOptions);
   const mobius = createMeshMaterial(geometry, material, materialOptions);
@@ -215,6 +261,7 @@ function addMobius(parent) {
   const size = (CENTRAL_CYLINDER_HEIGHT * 2) / 3;
 
   alignPieceVertically(mobius, size, CENTRAL_CYLINDER_HEIGHT + 0.2);
+  createPointLight(mobius);
 
   parent.add(mobius);
 }
@@ -222,9 +269,9 @@ function addMobius(parent) {
 function addVertex(u, t) {
   u = u - 0.5;
   const v = 2 * Math.PI * t;
-  const a = 2;
-  const x = Math.cos(v) * (a + u * Math.cos(v / 2));
-  const y = Math.sin(v) * (a + u * Math.cos(v / 2));
+  const scale = 2;
+  const x = Math.cos(v) * (scale + u * Math.cos(v / 2));
+  const y = Math.sin(v) * (scale + u * Math.cos(v / 2));
   const z = u * Math.sin(v / 2);
   const vertex = new THREE.Vector3(x, y, z);
   return vertex;
@@ -649,8 +696,12 @@ function onKeyDown(e) {
       keysMap.set(key, callback);
       break;
     case "p":
-      // TODO: toggle luzes pontuais
-      callback = () => {};
+      callback = () => {
+        for (const pointlight of pointlights) {
+          pointlight.visible = !pointlight.visible;
+        }
+        keysMap.delete(key);
+      };
       keysMap.set(key, callback);
       break;
     case "s":
