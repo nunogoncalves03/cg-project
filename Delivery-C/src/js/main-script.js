@@ -42,6 +42,8 @@ var scene, renderer;
 
 var camera;
 
+var lights = [];
+var lightsActive = true;
 var spotlights = [];
 
 var centralCylinder;
@@ -101,6 +103,8 @@ function createPerspectiveCamera() {
 
 function createAmbientLight(scene) {
   const light = new THREE.AmbientLight(0xde9b4e, 0.5);
+
+  lights.push(light);
   scene.add(light);
 }
 
@@ -108,6 +112,8 @@ function createDirectionalLight(scene) {
   const directionalLight = new THREE.DirectionalLight(0xffffff);
   directionalLight.position.set(0, centralCylinder.position.y + 2, 5);
   directionalLight.target = centralCylinder;
+
+  lights.push(directionalLight);
   scene.add(directionalLight);
 }
 
@@ -116,6 +122,7 @@ function createSpotlight(parent, targetPiece) {
   spotlight.position.set(0, 0, 0);
   spotlight.target = targetPiece;
 
+  lights.push(spotlight);
   spotlights.push(spotlight);
   parent.add(spotlight);
 }
@@ -661,9 +668,14 @@ function onKeyDown(e) {
       };
       keysMap.set(key, callback);
       break;
-    case "t":
-      // TODO: deactive light calculations
-      callback = () => {};
+    case "t": // FIXME: is this the correct implementation?
+      callback = () => {
+        lightsActive = !lightsActive;
+        for (const light of lights) {
+          light.visible = lightsActive;
+        }
+        keysMap.delete(key);
+      };
       keysMap.set(key, callback);
       break;
   }
