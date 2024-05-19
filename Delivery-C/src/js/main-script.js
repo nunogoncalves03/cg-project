@@ -586,6 +586,12 @@ function init() {
 
   // When window loses focus, clear all pressed keys
   window.addEventListener("blur", () => clearKeys());
+
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 }
 
 /////////////////////
