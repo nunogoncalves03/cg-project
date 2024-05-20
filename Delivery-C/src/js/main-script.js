@@ -568,27 +568,42 @@ function rotatePieces() {
 }
 
 function switchMaterials(key) {
+  let newMaterial;
   for (const mesh of meshes) {
     switch (key) {
       case "q":
-        mesh.material = new THREE.MeshLambertMaterial(
+        newMaterial = new THREE.MeshLambertMaterial(
           mesh.userData.materialOptions
         );
+        if (lightsActive) {
+          mesh.material = newMaterial;
+        }
+        mesh.userData.currentMaterial = newMaterial;
         break;
       case "w":
-        mesh.material = new THREE.MeshPhongMaterial(
+        newMaterial = new THREE.MeshPhongMaterial(
           mesh.userData.materialOptions
         );
+        if (lightsActive) {
+          mesh.material = newMaterial;
+        }
+        mesh.userData.currentMaterial = newMaterial;
         break;
       case "e":
-        mesh.material = new THREE.MeshToonMaterial(
-          mesh.userData.materialOptions
-        );
+        newMaterial = new THREE.MeshToonMaterial(mesh.userData.materialOptions);
+        if (lightsActive) {
+          mesh.material = newMaterial;
+        }
+        mesh.userData.currentMaterial = newMaterial;
         break;
       case "r":
-        mesh.material = new THREE.MeshNormalMaterial(
+        newMaterial = new THREE.MeshNormalMaterial(
           mesh.userData.materialOptions
         );
+        if (lightsActive) {
+          mesh.material = newMaterial;
+        }
+        mesh.userData.currentMaterial = newMaterial;
         break;
       case "t":
         if (lightsActive) {
