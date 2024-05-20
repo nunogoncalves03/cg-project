@@ -120,7 +120,7 @@ function createDirectionalLight(scene) {
 }
 
 function createSpotlight(parent, targetPiece) {
-  const spotlight = new THREE.SpotLight(0xffffff, 0.2, 1);
+  const spotlight = new THREE.SpotLight(0xffffff, 0.2, 1, Math.PI / 2, 0.5);
   spotlight.position.set(0, 0, 0);
   spotlight.target = targetPiece;
 
@@ -151,7 +151,7 @@ function createMeshMaterial(geometry, material, materialOptions) {
   "use strict";
 
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.userData = { materialOptions };
+  mesh.userData = { materialOptions, currentMaterial: material };
   meshes.push(mesh);
 
   return mesh;
@@ -590,6 +590,15 @@ function switchMaterials(key) {
           mesh.userData.materialOptions
         );
         break;
+      case "t":
+        if (lightsActive) {
+          mesh.material = mesh.userData.currentMaterial;
+        } else {
+          mesh.material = new THREE.MeshBasicMaterial(
+            mesh.userData.materialOptions
+          );
+        }
+        break;
     }
   }
 }
@@ -726,9 +735,7 @@ function onKeyDown(e) {
     case "t": // FIXME: is this the correct implementation?
       callback = () => {
         lightsActive = !lightsActive;
-        for (const light of lights) {
-          light.visible = lightsActive;
-        }
+        switchMaterials(key);
         keysMap.delete(key);
       };
       keysMap.set(key, callback);
