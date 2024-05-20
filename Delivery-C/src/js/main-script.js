@@ -762,11 +762,7 @@ function init() {
   // When window loses focus, clear all pressed keys
   window.addEventListener("blur", () => clearKeys());
 
-  window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+  window.addEventListener("resize", onResize);
 }
 
 /////////////////////
@@ -787,6 +783,13 @@ function animate() {
 ////////////////////////////
 function onResize() {
   "use strict";
+
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  if (window.innerHeight > 0 && window.innerWidth > 0) {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  }
 }
 
 ///////////////////////
