@@ -41,6 +41,7 @@ const RINGS_COLOR = [0xeeeeee, CENTRAL_CYLINDER_COLOR, 0xeeeeee];
 var scene, renderer;
 
 var camera;
+var stereoCamera;
 
 var lights = [];
 var lightsActive = true;
@@ -97,6 +98,11 @@ function createPerspectiveCamera() {
   camera.position.y = 2.5;
   camera.position.z = 6;
   camera.lookAt(0, 0, 0);
+}
+
+function createStereoCamera() {
+  "use strict";
+  stereoCamera = new THREE.StereoCamera();
 }
 
 /////////////////////
@@ -720,7 +726,13 @@ function update() {
 /////////////
 function render() {
   "use strict";
-  renderer.render(scene, camera);
+  if (renderer.xr.isPresenting) {
+    const xrCamera = renderer.xr.getCamera(camera);
+    stereoCamera.update(xrCamera);
+    renderer.render(scene, xrCamera);
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
 ////////////////////////////////
@@ -731,11 +743,16 @@ function init() {
   renderer = new THREE.WebGLRenderer({
     antialias: true,
   });
+  renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
+  renderer.xr.enabled = true;
+  document.body.appendChild(VRButton.createButton(renderer));
+
   createScene();
   createPerspectiveCamera();
+  createStereoCamera();
 
   new OrbitControls(camera, renderer.domElement);
 
@@ -762,7 +779,7 @@ function animate() {
   update();
   render();
 
-  requestAnimationFrame(animate);
+  renderer.setAnimationLoop(animate);
 }
 
 ////////////////////////////
