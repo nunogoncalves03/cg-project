@@ -52,11 +52,19 @@ var pointlights = [];
 var centralCylinder;
 
 var rings = [];
-var ringsMovementStatus = [false, false, false];
+var ringsMovementStatus = [true, true, true];
+// The initial movement speed of the rings is random, distributed between
+// 60% and 100% of the RINGS_MOVEMENT_SPEED and with a random direction
 var ringMovementSpeeds = [
-  RINGS_MOVEMENT_SPEED,
-  RINGS_MOVEMENT_SPEED,
-  RINGS_MOVEMENT_SPEED,
+  RINGS_MOVEMENT_SPEED *
+    (Math.random() * 0.4 + 0.6) *
+    (Math.random() < 0.5 ? -1 : 1),
+  RINGS_MOVEMENT_SPEED *
+    (Math.random() * 0.4 + 0.6) *
+    (Math.random() < 0.5 ? -1 : 1),
+  RINGS_MOVEMENT_SPEED *
+    (Math.random() * 0.4 + 0.6) *
+    (Math.random() < 0.5 ? -1 : 1),
 ];
 
 var pieces = [];
@@ -366,7 +374,11 @@ function addRings(parent) {
   const ringCount = RING_CENTER_OFFSET.length;
   for (let i = 0; i < RING_CENTER_OFFSET.length; i++) {
     const ringGroup = new THREE.Object3D();
-    ringGroup.position.set(0, RING_HEIGHT * (ringCount - i), 0);
+    ringGroup.position.set(
+      0,
+      CENTRAL_CYLINDER_HEIGHT / 2 + RING_HEIGHT * (ringCount - i),
+      0
+    );
     addRing(ringGroup, i);
     addPieces(ringGroup, i);
 
