@@ -97,15 +97,19 @@ function createScene() {
 function createPerspectiveCamera() {
   "use strict";
   camera = new THREE.PerspectiveCamera(
-    80,
+    90,
     window.innerWidth / window.innerHeight,
     0.05,
     2000
   );
   camera.position.x = 0;
-  camera.position.y = 2.5;
-  camera.position.z = 6;
-  camera.lookAt(0, 0, 0);
+  camera.position.y = 3;
+  camera.position.z = 4.5;
+  camera.lookAt(
+    centralCylinder.position.x,
+    centralCylinder.position.y - 0.5,
+    centralCylinder.position.z
+  );
 }
 
 function createStereoCamera() {
@@ -766,7 +770,8 @@ function init() {
   createPerspectiveCamera();
   createStereoCamera();
 
-  new OrbitControls(camera, renderer.domElement);
+  // FIXME
+  // new OrbitControls(camera, renderer.domElement);
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
