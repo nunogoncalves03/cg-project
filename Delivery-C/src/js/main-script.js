@@ -736,6 +736,10 @@ function update() {
 /////////////
 function render() {
   "use strict";
+
+  if (renderer.xr.isPresenting) {
+    scene.position.set(0, -2, -4.5);
+  }
   renderer.render(scene, camera);
 }
 
