@@ -104,10 +104,12 @@ function createPerspectiveCamera() {
   camera.position.x = 0;
   camera.position.y = 3;
   camera.position.z = 4.5;
+  const centralCylinderPos = new THREE.Vector3();
+  centralCylinder.getWorldPosition(centralCylinderPos);
   camera.lookAt(
-    centralCylinder.position.x,
-    centralCylinder.position.y - 0.5,
-    centralCylinder.position.z
+    centralCylinderPos.x,
+    centralCylinderPos.y - 0.5,
+    centralCylinderPos.z
   );
 }
 
@@ -716,6 +718,11 @@ function switchMaterials(key) {
 function update() {
   "use strict";
 
+  // Offset the scene while on VR mode to move away from the camera
+  if (renderer.xr.isPresenting) {
+    scene.position.set(0, -1.5, -4.5);
+  }
+
   for (const callback of keysMap.values()) {
     callback();
   }
@@ -737,9 +744,6 @@ function update() {
 function render() {
   "use strict";
 
-  if (renderer.xr.isPresenting) {
-    scene.position.set(0, -2, -4.5);
-  }
   renderer.render(scene, camera);
 }
 
