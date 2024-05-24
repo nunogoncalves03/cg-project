@@ -134,7 +134,7 @@ function createDirectionalLight(scene) {
 }
 
 function createSpotlight(parent, targetPiece) {
-  const spotlight = new THREE.SpotLight(0xffffff, 0.2, 1, Math.PI / 2, 0.5);
+  const spotlight = new THREE.SpotLight(0xffffff, 0.2, 1.5, Math.PI / 2, 0.5);
   spotlight.position.set(0, 0, 0);
   spotlight.target = targetPiece;
 
@@ -364,7 +364,7 @@ function addMobius(parent) {
   mobius.rotation.x = Math.PI / 2;
   const size = (CENTRAL_CYLINDER_HEIGHT * 2) / 3;
 
-  alignPieceVertically(mobius, size, CENTRAL_CYLINDER_HEIGHT + 0.2);
+  alignObjectVertically(mobius, size, CENTRAL_CYLINDER_HEIGHT + 0.2);
   createPointLight(mobius);
 
   parent.add(mobius);
@@ -465,8 +465,12 @@ function addPieces(parent, ringIndex) {
     pieceGroup.position.setZ(radius * Math.sin(placementAngle));
 
     const pieceRotAxis = new THREE.Object3D();
-    pieceRotAxis.rotateX(RINGS_PIECE_ORIENTATION[ringIndex]);
-    pieceRotAxis.rotateZ(RINGS_PIECE_ORIENTATION[ringIndex]);
+    const rotAxis = new THREE.Vector3(
+      Math.random(),
+      Math.random(),
+      Math.random()
+    ).normalize();
+    pieceRotAxis.rotateOnAxis(rotAxis, Math.random() * Math.PI - Math.PI / 2);
     pieceRotAxis.add(piece);
 
     pieceRotAxis.position.setX(0);
@@ -483,12 +487,28 @@ function addPieces(parent, ringIndex) {
   pieces.push(newPieces);
 }
 
-function alignPieceVertically(
-  pieceObject,
-  targetMaxMeasure,
-  targetY = RING_HEIGHT / 4
-) {
+function alignPieceVertically(pieceObject, targetMaxMeasure, offset = 0) {
+  scaleObject(pieceObject, targetMaxMeasure);
+
   const box = new THREE.Box3().setFromObject(pieceObject);
+  const maxSpan = box.max.clone().sub(box.min).length();
+
+  pieceObject.position.setY(maxSpan / 2 + offset);
+}
+
+function alignObjectVertically(object, targetMaxMeasure, offset = 0) {
+  scaleObject(object, targetMaxMeasure);
+
+  const box = new THREE.Box3().setFromObject(object);
+  const height = box.max.y - box.min.y;
+
+  object.position.setY(height / 2 + offset);
+}
+
+function scaleObject(object, targetMaxMeasure) {
+  "use strict";
+
+  const box = new THREE.Box3().setFromObject(object);
   const largestMeasure = Math.max(
     box.max.x - box.min.x,
     box.max.y - box.min.y,
@@ -497,14 +517,9 @@ function alignPieceVertically(
 
   const scaleFactor = targetMaxMeasure / largestMeasure;
 
-  pieceObject.scale.x = scaleFactor;
-  pieceObject.scale.y = scaleFactor;
-  pieceObject.scale.z = scaleFactor;
-
-  box.setFromObject(pieceObject);
-  const height = box.max.y - box.min.y;
-
-  pieceObject.position.setY(height / 2 + targetY);
+  object.scale.x = scaleFactor;
+  object.scale.y = scaleFactor;
+  object.scale.z = scaleFactor;
 }
 
 function addSkydome(parent) {
@@ -585,10 +600,10 @@ function hemisphereFunction(u, v, target) {
 
 function hyperboloidFunction(u, v, target) {
   const r = 1.4 * v;
-  const theta = 2 * Math.PI * u;
+  const theta = (3 / 2) * Math.PI * u;
   const x = r * Math.cos(theta);
-  const y = r * Math.sin(theta);
-  const z = Math.pow(r, 2);
+  const y = -Math.pow(r, 2);
+  const z = r * Math.sin(theta);
   target.set(x, y, z);
 }
 
@@ -765,9 +780,6 @@ function init() {
   createScene();
   createPerspectiveCamera();
 
-  // FIXME
-  // new OrbitControls(camera, renderer.domElement);
-
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
 
@@ -858,7 +870,7 @@ function onKeyDown(e) {
       };
       keysMap.set(key, callback);
       break;
-    case "t": // FIXME: is this the correct implementation?
+    case "t":
       callback = () => {
         lightsActive = !lightsActive;
         switchMaterials(key);
