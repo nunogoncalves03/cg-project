@@ -41,7 +41,6 @@ const RINGS_COLOR = [0xeeeeee, CENTRAL_CYLINDER_COLOR, 0xeeeeee];
 var scene, renderer;
 
 var camera;
-var stereoCamera;
 
 var lights = [];
 var lightsActive = true;
@@ -110,11 +109,6 @@ function createPerspectiveCamera() {
     centralCylinder.position.y - 0.5,
     centralCylinder.position.z
   );
-}
-
-function createStereoCamera() {
-  "use strict";
-  stereoCamera = new THREE.StereoCamera();
 }
 
 /////////////////////
@@ -742,13 +736,7 @@ function update() {
 /////////////
 function render() {
   "use strict";
-  if (renderer.xr.isPresenting) {
-    const xrCamera = renderer.xr.getCamera(camera);
-    stereoCamera.update(xrCamera);
-    renderer.render(scene, xrCamera);
-  } else {
-    renderer.render(scene, camera);
-  }
+  renderer.render(scene, camera);
 }
 
 ////////////////////////////////
@@ -768,7 +756,6 @@ function init() {
 
   createScene();
   createPerspectiveCamera();
-  createStereoCamera();
 
   // FIXME
   // new OrbitControls(camera, renderer.domElement);
