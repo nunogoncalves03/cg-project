@@ -3,7 +3,6 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { VRButton } from "three/addons/webxr/VRButton.js";
 import * as Stats from "three/addons/libs/stats.module.js";
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
-import { ParametricGeometries } from "three/addons/geometries/ParametricGeometries.js";
 import { ParametricGeometry } from "three/addons/geometries/ParametricGeometry.js";
 
 //////////////////////
@@ -27,11 +26,8 @@ const RING_PIECE_SIZE = [
 ];
 const RING_PIECES_COUNT = 8;
 
-const DEFAULT_WIREFRAME = false;
-
 const RINGS_MOVEMENT_SPEED = 1.75;
 
-const RINGS_PIECE_ORIENTATION = [Math.PI / 8, Math.PI / 4, -Math.PI / 4];
 const RINGS_PIECE_ROTATION_SPEED = [1.3, -1.8, 2.3];
 const RINGS_PIECE_COLOR = [0xf57f89, 0x34ebba, 0xf0b673];
 const RINGS_COLOR = [0xeeeeee, CENTRAL_CYLINDER_COLOR, 0xeeeeee];
@@ -184,7 +180,6 @@ function addCentralCylinder(parent) {
 
   const materialOptions = {
     color: CENTRAL_CYLINDER_COLOR,
-    wireframe: DEFAULT_WIREFRAME,
   };
   const material = new THREE.MeshLambertMaterial(materialOptions);
   const geometry = new THREE.CylinderGeometry(
@@ -434,7 +429,6 @@ function addPieces(parent, ringIndex) {
 
   const materialOptions = {
     color: RINGS_PIECE_COLOR[ringIndex],
-    wireframe: DEFAULT_WIREFRAME,
     side: THREE.DoubleSide,
   };
   const material = new THREE.MeshLambertMaterial(materialOptions);
